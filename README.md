@@ -135,5 +135,5 @@ Built with React Native + Expo
 
 ---
 
-Licensed under the [MIT License](./LICENSE)
+Licensed under the [MIT License](./LICENSE) — Copyright (c) 2026 Diego Torres
 </div>
