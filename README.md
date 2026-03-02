@@ -110,8 +110,6 @@ npx expo run:android
 npx expo run:ios
 ```
 
-For Stripe and EAS configuration, see [SETUP.md](./SETUP.md).
-
 ---
 
 ## Tech Stack
@@ -134,4 +132,8 @@ For Stripe and EAS configuration, see [SETUP.md](./SETUP.md).
 
 <div align="center">
 Built with React Native + Expo
+
+---
+
+Licensed under the [MIT License](./LICENSE)
 </div>
