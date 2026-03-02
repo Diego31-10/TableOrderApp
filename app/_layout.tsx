@@ -17,8 +17,9 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
-// Replace this with your Stripe Publishable Key from https://dashboard.stripe.com/test/apikeys
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_WITH_YOUR_KEY';
+// Loaded from .env — never hardcode keys in source files.
+// See .env.example for setup instructions.
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_KEY ?? '';
 
 SplashScreen.preventAutoHideAsync();
 
