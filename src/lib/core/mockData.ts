@@ -2,6 +2,9 @@ import { Product, TableData } from './types';
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
+const IMG = (id: string) =>
+  `https://images.unsplash.com/photo-${id}?w=480&h=360&fit=crop&auto=format&q=80`;
+
 export const PRODUCTS: Product[] = [
   // FOOD
   {
@@ -9,7 +12,7 @@ export const PRODUCTS: Product[] = [
     name: 'Hamburguesa Clásica',
     price: 12.99,
     category: 'FOOD',
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400',
+    image: IMG('1568901346375-23c9450c58cd'), // juicy burger
     description: 'Carne 200g, lechuga, tomate, queso cheddar',
   },
   {
@@ -17,7 +20,7 @@ export const PRODUCTS: Product[] = [
     name: 'Pasta Carbonara',
     price: 10.5,
     category: 'FOOD',
-    image: 'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400',
+    image: IMG('1621996346565-e3dbc646d9a9'), // creamy pasta
     description: 'Espaguetis, panceta, huevo, parmesano',
   },
   {
@@ -25,7 +28,7 @@ export const PRODUCTS: Product[] = [
     name: 'Ensalada César',
     price: 8.75,
     category: 'FOOD',
-    image: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400',
+    image: IMG('1546793665-c74683f339c1'), // caesar salad
     description: 'Lechuga romana, crutones, parmesano, aderezo César',
   },
   {
@@ -33,7 +36,7 @@ export const PRODUCTS: Product[] = [
     name: 'Pizza Margherita',
     price: 11.0,
     category: 'FOOD',
-    image: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=400',
+    image: IMG('1513104890138-7c749659a591'), // margherita pizza
     description: 'Salsa de tomate, mozzarella, albahaca fresca',
   },
   // SNACKS
@@ -42,7 +45,7 @@ export const PRODUCTS: Product[] = [
     name: 'Nachos con Guacamole',
     price: 6.5,
     category: 'SNACK',
-    image: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400',
+    image: IMG('1513456852971-30c0b8199d4d'), // nachos
     description: 'Totopos crujientes con guacamole casero',
   },
   {
@@ -50,7 +53,7 @@ export const PRODUCTS: Product[] = [
     name: 'Alitas BBQ (6 pzs)',
     price: 9.0,
     category: 'SNACK',
-    image: 'https://images.unsplash.com/photo-1527477396000-e27163b481c2?w=400',
+    image: IMG('1527477396000-e27163b481c2'), // chicken wings
     description: 'Alitas de pollo glaseadas con salsa BBQ',
   },
   // DRINKS
@@ -59,7 +62,7 @@ export const PRODUCTS: Product[] = [
     name: 'Cerveza Artesanal',
     price: 4.5,
     category: 'DRINK',
-    image: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400',
+    image: IMG('1608270586620-248524c67de9'), // craft beer
     description: 'Rubia, tostada o negra — 500ml',
   },
   {
@@ -67,7 +70,7 @@ export const PRODUCTS: Product[] = [
     name: 'Mojito Clásico',
     price: 7.0,
     category: 'DRINK',
-    image: 'https://images.unsplash.com/photo-1551538827-9c037cb4f32a?w=400',
+    image: IMG('1551538827-9c037cb4f32a'), // mojito
     description: 'Ron blanco, lima, menta, azúcar, soda',
   },
   {
@@ -75,7 +78,7 @@ export const PRODUCTS: Product[] = [
     name: 'Agua con Gas',
     price: 2.0,
     category: 'DRINK',
-    image: 'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=400',
+    image: IMG('1548839140-29a749e1cf4d'), // sparkling water
     description: 'San Pellegrino 500ml',
   },
   {
@@ -83,7 +86,7 @@ export const PRODUCTS: Product[] = [
     name: 'Smoothie de Mango',
     price: 5.5,
     category: 'DRINK',
-    image: 'https://images.unsplash.com/photo-1623065422902-30a2d299bbe4?w=400',
+    image: IMG('1623065422902-30a2d299bbe4'), // mango smoothie
     description: 'Mango, yogur, miel y un toque de jengibre',
   },
   // DESSERTS
@@ -92,7 +95,7 @@ export const PRODUCTS: Product[] = [
     name: 'Tarta de Chocolate',
     price: 5.0,
     category: 'DESSERT',
-    image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400',
+    image: IMG('1578985545062-69928b1d9587'), // chocolate cake
     description: 'Tarta casera con ganache de 70% cacao',
   },
   {
@@ -100,7 +103,7 @@ export const PRODUCTS: Product[] = [
     name: 'Tiramisú',
     price: 5.5,
     category: 'DESSERT',
-    image: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400',
+    image: IMG('1571877227200-a0d98ea607e9'), // tiramisu
     description: 'Clásico italiano con mascarpone y bizcochos',
   },
 ];
@@ -124,7 +127,7 @@ export const TABLES_DATA: Record<string, TableData> = {
   },
   TABLE_BDAY_99: {
     id: 'TABLE_BDAY_99',
-    displayName: 'Mesa Especial ✨',
+    displayName: 'Mesa Especial',
     status: 'FREE',
     menuType: 'FULL',
     specialEvent: 'BIRTHDAY',

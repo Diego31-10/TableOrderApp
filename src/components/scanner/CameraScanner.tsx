@@ -11,6 +11,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { CameraOff, QrCode, Settings } from 'lucide-react-native';
 import { TABLES_DATA } from '@/src/lib/core/mockData';
 import { useTableStore } from '@/src/stores/useTableStore';
 
@@ -43,7 +44,7 @@ export default function CameraScanner() {
           ? 'Este código no pertenece a ninguna mesa de TableOrder.'
           : `Código inválido: "${data}"`;
 
-        Alert.alert('⚠️ Código no reconocido', message, [
+        Alert.alert('Código no reconocido', message, [
           {
             text: 'Volver a intentar',
             onPress: () => {
@@ -72,7 +73,8 @@ export default function CameraScanner() {
   if (!permission.granted) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.permissionTitle}>Cámara bloqueada 📷</Text>
+        <CameraOff size={56} color="#E25822" strokeWidth={1.5} />
+        <Text style={styles.permissionTitle}>Cámara bloqueada</Text>
         <Text style={styles.permissionText}>
           TableOrder necesita acceso a la cámara para escanear el QR de tu mesa.
         </Text>
@@ -85,6 +87,7 @@ export default function CameraScanner() {
             style={styles.button}
             onPress={() => Linking.openSettings()}
           >
+            <Settings size={16} color="#fff" style={styles.buttonIcon} />
             <Text style={styles.buttonText}>Abrir configuración</Text>
           </TouchableOpacity>
         )}
@@ -116,6 +119,7 @@ export default function CameraScanner() {
           <View style={styles.sideMask} />
         </View>
         <View style={styles.bottomMask}>
+          <QrCode size={20} color="#fff" strokeWidth={1.5} style={styles.hintIcon} />
           <Text style={styles.hint}>Apunta al código QR de tu mesa</Text>
         </View>
       </View>
@@ -145,6 +149,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     marginBottom: 12,
+    marginTop: 20,
     textAlign: 'center',
   },
   permissionText: {
@@ -156,9 +161,15 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#E25822',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 12,
+  },
+  buttonIcon: {
+    // space managed by gap
   },
   buttonText: {
     color: '#fff',
@@ -192,6 +203,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     paddingTop: 20,
+    gap: 8,
+  },
+  hintIcon: {
+    opacity: 0.8,
   },
   hint: {
     color: '#fff',
