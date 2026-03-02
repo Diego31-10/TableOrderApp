@@ -1,31 +1,48 @@
-import { StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import CameraScanner from '@/src/components/scanner/CameraScanner';
+import { Brand } from '@/constants/Colors';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
-
-export default function TabOneScreen() {
+export default function ScannerTab() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
-    </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Escanear mesa</Text>
+        <Text style={styles.subtitle}>Apunta al codigo QR para comenzar tu pedido</Text>
+      </View>
+      <View style={styles.cameraContainer}>
+        <CameraScanner />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: Brand.background,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
+    color: Brand.textPrimary,
+    letterSpacing: -0.3,
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  subtitle: {
+    fontSize: 14,
+    color: Brand.textSecondary,
+    marginTop: 4,
+  },
+  cameraContainer: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
 });
