@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -10,10 +10,13 @@ import { useTableStore } from '@/src/stores/useTableStore';
 import { playBeep } from '@/src/lib/core/sound/SoundService';
 import ErrorState from '@/src/components/ui/ErrorState';
 import ToastMessage from '@/src/components/ui/ToastMessage';
-import { Linking } from 'react-native';
+import ScanFrame, { ScanState } from '@/src/components/scanner/ScanFrame';
+
+const FRAME_SIZE = 260;
 
 export default function CameraScanner() {
   const [permission, requestPermission] = useCameraPermissions();
+  const [scanState, setScanState] = useState<ScanState>('idle');
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -30,8 +33,8 @@ export default function CameraScanner() {
 
   const onToastHide = useCallback(() => {
     setToastVisible(false);
-    // Release the scan lock after the toast exits so the user can retry
-    isProcessing.current = false;
+    setScanState('idle');         // reset frame to neutral after error toast exits
+    isProcessing.current = false; // unlock scanner for next attempt
   }, []);
 
   const onBarcodeScanned = useCallback(
@@ -43,26 +46,33 @@ export default function CameraScanner() {
       const tableData = TABLES_DATA[data];
 
       if (tableData) {
-        // ── Valid QR — full multimodal confirmation ────────────────────────
+        // ── Valid QR: multimodal success feedback ─────────────────────────
+        setScanState('success');
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        playBeep(); // expo-av short beep
+        playBeep();
         setTable(data);
-        router.push({ pathname: '/(tabs)/menu', params: { tableId: data } });
-        // Keep lock true while navigating to prevent re-trigger
+
+        // Brief pause so the user sees the green frame before navigating
+        setTimeout(() => {
+          router.push({ pathname: '/(tabs)/menu', params: { tableId: data } });
+        }, 900);
       } else {
-        // ── Invalid QR — show in-screen toast, auto-reset after dismiss ────
+        // ── Invalid QR: error frame + warning haptic + toast ──────────────
+        setScanState('error');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
         const msg = data.startsWith('TABLE_')
           ? 'Este codigo no pertenece a ninguna mesa de TableOrder.'
           : 'Este codigo QR no es valido para TableOrder.';
+
         showToast(msg);
-        // isProcessing.current is reset inside onToastHide after 2.5 s
+        // isProcessing + scanState reset happens inside onToastHide
       }
     },
     [router, setTable, showToast]
   );
 
-  // ── Loading (permissions API not resolved yet) ────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (!permission) {
     return (
       <View style={styles.centered}>
@@ -71,7 +81,7 @@ export default function CameraScanner() {
     );
   }
 
-  // ── Permission denied — use reusable ErrorState ───────────────────────────
+  // ── Permission denied ─────────────────────────────────────────────────────
   if (!permission.granted) {
     return (
       <ErrorState
@@ -109,23 +119,18 @@ export default function CameraScanner() {
         onBarcodeScanned={onBarcodeScanned}
       />
 
-      {/* Darkened overlay with scan frame */}
+      {/* Darkened overlay with the animated scan frame */}
       <View style={styles.overlay}>
         <View style={styles.topMask} />
         <View style={styles.middleRow}>
           <View style={styles.sideMask} />
-          <View style={styles.scanFrame}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
-          </View>
+          <ScanFrame state={scanState} size={FRAME_SIZE} />
           <View style={styles.sideMask} />
         </View>
         <View style={styles.bottomMask} />
       </View>
 
-      {/* Invalid QR toast — overlays the camera */}
+      {/* Invalid QR toast — slides in from top */}
       <ToastMessage
         visible={toastVisible}
         message={toastMessage}
@@ -135,10 +140,6 @@ export default function CameraScanner() {
     </View>
   );
 }
-
-const FRAME_SIZE = 260;
-const CORNER_SIZE = 28;
-const CORNER_WIDTH = 4;
 
 const styles = StyleSheet.create({
   container: {
@@ -166,47 +167,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.58)',
   },
-  scanFrame: {
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
-    backgroundColor: 'transparent',
-  },
   bottomMask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.58)',
-  },
-  corner: {
-    position: 'absolute',
-    width: CORNER_SIZE,
-    height: CORNER_SIZE,
-    borderColor: Brand.primary,
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: CORNER_WIDTH,
-    borderLeftWidth: CORNER_WIDTH,
-    borderTopLeftRadius: 6,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: CORNER_WIDTH,
-    borderRightWidth: CORNER_WIDTH,
-    borderTopRightRadius: 6,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: CORNER_WIDTH,
-    borderLeftWidth: CORNER_WIDTH,
-    borderBottomLeftRadius: 6,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: CORNER_WIDTH,
-    borderRightWidth: CORNER_WIDTH,
-    borderBottomRightRadius: 6,
   },
 });
