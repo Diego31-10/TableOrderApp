@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { preloadBeep } from '@/src/lib/core/sound/SoundService';
 
 export {
   ErrorBoundary,
@@ -33,6 +34,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      preloadBeep(); // warm up audio so first scan plays instantly
     }
   }, [loaded]);
 
