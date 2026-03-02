@@ -1,101 +1,105 @@
-import { useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  Linking,
-  ActivityIndicator,
-} from 'react-native';
+import { useRef, useCallback, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { CameraOff, QrCode, Settings } from 'lucide-react-native';
+import { CameraOff, Settings } from 'lucide-react-native';
+import { Brand } from '@/constants/Colors';
 import { TABLES_DATA } from '@/src/lib/core/mockData';
 import { useTableStore } from '@/src/stores/useTableStore';
+import { playBeep } from '@/src/lib/core/sound/SoundService';
+import ErrorState from '@/src/components/ui/ErrorState';
+import ToastMessage from '@/src/components/ui/ToastMessage';
+import { Linking } from 'react-native';
 
 export default function CameraScanner() {
   const [permission, requestPermission] = useCameraPermissions();
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   const router = useRouter();
   const setTable = useTableStore((s) => s.setTable);
 
   // Idempotency guard — prevents double-scan processing
   const isProcessing = useRef(false);
 
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setToastVisible(true);
+  }, []);
+
+  const onToastHide = useCallback(() => {
+    setToastVisible(false);
+    // Release the scan lock after the toast exits so the user can retry
+    isProcessing.current = false;
+  }, []);
+
   const onBarcodeScanned = useCallback(
     ({ data }: { data: string }) => {
-      // ── Idempotency check ─────────────────────────────────────────
+      // ── Idempotency check ─────────────────────────────────────────────────
       if (isProcessing.current) return;
       isProcessing.current = true;
 
-      // ── Haptic feedback ───────────────────────────────────────────
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-      // ── QR Validation ─────────────────────────────────────────────
       const tableData = TABLES_DATA[data];
 
       if (tableData) {
+        // ── Valid QR — full multimodal confirmation ────────────────────────
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        playBeep(); // expo-av short beep
         setTable(data);
         router.push({ pathname: '/(tabs)/menu', params: { tableId: data } });
-        // Keep isProcessing true so we don't scan again while navigating
+        // Keep lock true while navigating to prevent re-trigger
       } else {
-        const message = data.startsWith('TABLE_')
-          ? 'Este código no pertenece a ninguna mesa de TableOrder.'
-          : `Código inválido: "${data}"`;
-
-        Alert.alert('Código no reconocido', message, [
-          {
-            text: 'Volver a intentar',
-            onPress: () => {
-              // Reset after 2 seconds for a smooth UX
-              setTimeout(() => {
-                isProcessing.current = false;
-              }, 2000);
-            },
-          },
-        ]);
+        // ── Invalid QR — show in-screen toast, auto-reset after dismiss ────
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        const msg = data.startsWith('TABLE_')
+          ? 'Este codigo no pertenece a ninguna mesa de TableOrder.'
+          : 'Este codigo QR no es valido para TableOrder.';
+        showToast(msg);
+        // isProcessing.current is reset inside onToastHide after 2.5 s
       }
     },
-    [router, setTable]
+    [router, setTable, showToast]
   );
 
-  // ── Loading state ───────────────────────────────────────────────────────────
+  // ── Loading (permissions API not resolved yet) ────────────────────────────
   if (!permission) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#E25822" />
+        <ActivityIndicator size="large" color={Brand.primary} />
       </View>
     );
   }
 
-  // ── Permission denied ────────────────────────────────────────────────────────
+  // ── Permission denied — use reusable ErrorState ───────────────────────────
   if (!permission.granted) {
     return (
-      <View style={styles.centered}>
-        <CameraOff size={56} color="#E25822" strokeWidth={1.5} />
-        <Text style={styles.permissionTitle}>Cámara bloqueada</Text>
-        <Text style={styles.permissionText}>
-          TableOrder necesita acceso a la cámara para escanear el QR de tu mesa.
-        </Text>
-        {permission.canAskAgain ? (
-          <TouchableOpacity style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Permitir acceso</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => Linking.openSettings()}
-          >
-            <Settings size={16} color="#fff" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Abrir configuración</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      <ErrorState
+        icon={<CameraOff size={60} color={Brand.primary} strokeWidth={1.4} />}
+        title="Camara bloqueada"
+        message="TableOrder necesita acceso a la camara para escanear el codigo QR de tu mesa."
+        primaryAction={
+          permission.canAskAgain
+            ? { label: 'Permitir acceso', onPress: requestPermission }
+            : {
+                label: 'Abrir configuracion',
+                onPress: () => Linking.openSettings(),
+                icon: <Settings size={16} color="#fff" strokeWidth={2} />,
+              }
+        }
+        secondaryAction={
+          !permission.canAskAgain
+            ? {
+                label: 'Como habilitar la camara?',
+                onPress: () => Linking.openSettings(),
+              }
+            : undefined
+        }
+      />
     );
   }
 
-  // ── Camera active ────────────────────────────────────────────────────────────
+  // ── Camera active ─────────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <CameraView
@@ -105,7 +109,7 @@ export default function CameraScanner() {
         onBarcodeScanned={onBarcodeScanned}
       />
 
-      {/* Overlay with scanning frame */}
+      {/* Darkened overlay with scan frame */}
       <View style={styles.overlay}>
         <View style={styles.topMask} />
         <View style={styles.middleRow}>
@@ -118,11 +122,16 @@ export default function CameraScanner() {
           </View>
           <View style={styles.sideMask} />
         </View>
-        <View style={styles.bottomMask}>
-          <QrCode size={20} color="#fff" strokeWidth={1.5} style={styles.hintIcon} />
-          <Text style={styles.hint}>Apunta al código QR de tu mesa</Text>
-        </View>
+        <View style={styles.bottomMask} />
       </View>
+
+      {/* Invalid QR toast — overlays the camera */}
+      <ToastMessage
+        visible={toastVisible}
+        message={toastMessage}
+        onHide={onToastHide}
+        duration={2000}
+      />
     </View>
   );
 }
@@ -130,7 +139,6 @@ export default function CameraScanner() {
 const FRAME_SIZE = 260;
 const CORNER_SIZE = 28;
 const CORNER_WIDTH = 4;
-const CORNER_COLOR = '#E25822';
 
 const styles = StyleSheet.create({
   container: {
@@ -141,49 +149,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: Brand.background,
   },
-  permissionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 12,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  permissionText: {
-    fontSize: 15,
-    color: '#aaa',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  button: {
-    backgroundColor: '#E25822',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  buttonIcon: {
-    // space managed by gap
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  // ── Overlay styles ──────────────────────────────────────────────────────────
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    flexDirection: 'column',
   },
   topMask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.58)',
   },
   middleRow: {
     flexDirection: 'row',
@@ -191,7 +164,7 @@ const styles = StyleSheet.create({
   },
   sideMask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.58)',
   },
   scanFrame: {
     width: FRAME_SIZE,
@@ -200,26 +173,13 @@ const styles = StyleSheet.create({
   },
   bottomMask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    paddingTop: 20,
-    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.58)',
   },
-  hintIcon: {
-    opacity: 0.8,
-  },
-  hint: {
-    color: '#fff',
-    fontSize: 15,
-    opacity: 0.8,
-    fontWeight: '500',
-  },
-  // ── Scanning frame corners ──────────────────────────────────────────────────
   corner: {
     position: 'absolute',
     width: CORNER_SIZE,
     height: CORNER_SIZE,
-    borderColor: CORNER_COLOR,
+    borderColor: Brand.primary,
   },
   topLeft: {
     top: 0,
