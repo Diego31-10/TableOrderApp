@@ -22,7 +22,14 @@
         "foregroundImage": "./assets/images/icon.png",
         "monochromeImage": "./assets/images/icon.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.diegos31.TableOrderApp"
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +58,9 @@
       "typedRoutes": true
     },
     "extra": {
-      "eas": { "projectId": "22814a2a-7d52-4708-b4a6-efd3810caf2d" }
+      "eas": {
+        "projectId": "22814a2a-7d52-4708-b4a6-efd3810caf2d"
+      }
     }
   }
 }
