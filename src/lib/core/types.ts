@@ -35,3 +35,24 @@ export interface CartItem {
   product: Product;
   quantity: number;
 }
+
+// ─── Location / Context-Aware Domain ─────────────────────────────────────────
+
+/** Application context mode determined by GPS-based geofencing */
+export type AppMode = 'CHECKING' | 'SCANNER' | 'DELIVERY';
+
+/** WGS-84 geographic coordinates */
+export interface Coordinates {
+  latitude: number;
+  longitude: number;
+}
+
+/** Decoded Mapbox Directions route metadata */
+export interface DeliveryInfo {
+  distanceKm: number;
+  etaMinutes: number;
+  /** Encoded polyline string from Mapbox API */
+  polyline: string;
+  /** Decoded array of coordinates ready for react-native-maps <Polyline /> */
+  decodedRoute: Coordinates[];
+}

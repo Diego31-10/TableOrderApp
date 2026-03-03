@@ -6,10 +6,14 @@ interface CartState {
   isBirthdayMode: boolean;
   discount: number;
   total: number;
+  serviceType: 'TABLE' | 'DELIVERY';
+  shippingCost: number;
   addItem: (product: Product) => void;
   removeItem: (productId: string) => void;
   resetCart: () => void;
   setBirthdayMode: (active: boolean, discount?: number) => void;
+  setServiceType: (type: 'TABLE' | 'DELIVERY') => void;
+  setShippingCost: (cost: number) => void;
 }
 
 function calcTotal(items: CartItem[], discount: number): number {
@@ -25,6 +29,8 @@ export const useCartStore = create<CartState>((set, get) => ({
   isBirthdayMode: false,
   discount: 0,
   total: 0,
+  serviceType: 'TABLE',
+  shippingCost: 0,
 
   addItem: (product: Product) => {
     const { items, discount } = get();
@@ -58,7 +64,14 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   resetCart: () => {
-    set({ items: [], total: 0, isBirthdayMode: false, discount: 0 });
+    set({
+      items: [],
+      total: 0,
+      isBirthdayMode: false,
+      discount: 0,
+      serviceType: 'TABLE',
+      shippingCost: 0,
+    });
   },
 
   setBirthdayMode: (active: boolean, discount = 0) => {
@@ -69,4 +82,8 @@ export const useCartStore = create<CartState>((set, get) => ({
       total: calcTotal(items, active ? discount : 0),
     });
   },
+
+  setServiceType: (type) => set({ serviceType: type }),
+
+  setShippingCost: (cost) => set({ shippingCost: cost }),
 }));
