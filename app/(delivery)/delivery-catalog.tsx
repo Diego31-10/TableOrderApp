@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { ArrowLeft, MapPin, Plus, Minus } from 'lucide-react-native';
 
 import { Brand } from '@/constants/Colors';
@@ -17,6 +18,7 @@ import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { Config } from '@/src/lib/core/config';
 import { Product } from '@/src/lib/core/types';
+import { getDeliveryRoute, calculateShippingCost } from '@/src/lib/services/mapboxService';
 
 // ─── Full menu sections (delivery always shows everything) ────────────────────
 
@@ -73,8 +75,24 @@ function ProductCard({ product }: { product: Product }) {
 
 export default function DeliveryCatalog() {
   const router = useRouter();
-  const { userLocation, deliveryInfo, resetLocation } = useLocationStore();
-  const { items, total, shippingCost } = useCartStore();
+  const { userLocation, restaurantLocation, deliveryInfo, setDeliveryRoute, resetLocation } =
+    useLocationStore();
+  const { items, total, shippingCost, setShippingCost } = useCartStore();
+
+  // Fetch the Mapbox route as soon as both coordinates are known
+  useEffect(() => {
+    if (!userLocation || !restaurantLocation || deliveryInfo) return;
+
+    (async () => {
+      try {
+        const info = await getDeliveryRoute(restaurantLocation, userLocation);
+        setDeliveryRoute(info);
+        setShippingCost(calculateShippingCost(info.distanceKm));
+      } catch {
+        // Route fetch failed — shipping cost stays at $0 and we continue gracefully
+      }
+    })();
+  }, [userLocation, restaurantLocation]);
 
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const grandTotal = (total + shippingCost).toFixed(2);
