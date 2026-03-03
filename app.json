@@ -62,7 +62,7 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Necesitamos tu ubicación para detectar si estás en el restaurante."
         }
-      ]
+      ],
     ],
     "experiments": {
       "typedRoutes": true
