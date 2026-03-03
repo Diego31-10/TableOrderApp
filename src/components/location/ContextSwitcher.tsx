@@ -1,13 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Linking,
-  Platform,
-} from 'react-native';
-import MapView, { MapPressEvent, Marker } from 'react-native-maps';
+import { View, Text, StyleSheet, ActivityIndicator, Linking } from 'react-native';
+import { MapView, Camera, PointAnnotation, UserLocation } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { MapPin, Navigation, MapPinned } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -20,27 +13,28 @@ import { useCartStore } from '@/src/stores/useCartStore';
 import ErrorState from '@/src/components/ui/ErrorState';
 
 // ─── Haversine Formula ────────────────────────────────────────────────────────
-// Calculates the great-circle distance between two coordinates in meters.
-// Formula: d = 2r·arcsin(√(sin²(Δφ/2) + cosφ₁·cosφ₂·sin²(Δλ/2)))
+// d = 2r·arcsin(√(sin²(Δφ/2) + cosφ₁·cosφ₂·sin²(Δλ/2)))
 
 function calculateDistance(c1: Coordinates, c2: Coordinates): number {
-  const R = 6_371_000; // Earth radius in meters
+  const R = 6_371_000;
   const φ1 = (c1.latitude * Math.PI) / 180;
   const φ2 = (c2.latitude * Math.PI) / 180;
   const Δφ = ((c2.latitude - c1.latitude) * Math.PI) / 180;
   const Δλ = ((c2.longitude - c1.longitude) * Math.PI) / 180;
-
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+    Math.sin(Δφ / 2) ** 2 +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ─── ContextSwitcher ──────────────────────────────────────────────────────────
 
 type PermissionStatus = 'loading' | 'granted' | 'denied';
+
+// GeoJSON feature shape returned by MapView.onPress
+type MapPressFeature = {
+  geometry: { type: string; coordinates: number[] };
+};
 
 export default function ContextSwitcher() {
   const [permStatus, setPermStatus] = useState<PermissionStatus>('loading');
@@ -51,7 +45,7 @@ export default function ContextSwitcher() {
   const { setServiceType } = useCartStore();
   const router = useRouter();
 
-  // ── 1. Request permissions & capture user position ──────────────────────────
+  // ── 1. Request permissions & capture user GPS position ─────────────────────
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -60,16 +54,12 @@ export default function ContextSwitcher() {
         setLocating(false);
         return;
       }
-
       setPermStatus('granted');
-
       const pos = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-
       setLocations(
         { latitude: pos.coords.latitude, longitude: pos.coords.longitude },
-        // restaurantLocation stays null until user taps the map
         { latitude: 0, longitude: 0 }
       );
       setLocating(false);
@@ -77,25 +67,27 @@ export default function ContextSwitcher() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 2. Handle map tap — set restaurant and decide mode ──────────────────────
+  // ── 2. Map tap → set restaurant → Haversine → decide mode ──────────────────
+  // Note: Mapbox uses GeoJSON coordinate order [longitude, latitude]
   const onMapPress = useCallback(
-    (e: MapPressEvent) => {
+    (feature: MapPressFeature) => {
       if (!userLocation) return;
 
-      const tapped: Coordinates = e.nativeEvent.coordinate;
+      const [longitude, latitude] = feature.geometry.coordinates;
+      const tapped: Coordinates = { latitude, longitude };
+
       setRestaurant(tapped);
 
       const distanceMeters = calculateDistance(userLocation, tapped);
-      const { geofenceRadiusMeters } = Config.restaurant;
 
-      if (distanceMeters <= geofenceRadiusMeters) {
-        // ── IN-SITU: user is inside the restaurant ────────────────────────
+      if (distanceMeters <= Config.restaurant.geofenceRadiusMeters) {
+        // ── IN-SITU: dentro del restaurante ──────────────────────────────────
         setLocations(userLocation, tapped);
         setAppMode('SCANNER');
         setServiceType('TABLE');
-        // Navigation handled in parent (index.tsx re-renders from store)
+        // index.tsx re-renders from store change — no explicit navigation needed
       } else {
-        // ── DELIVERY: user is outside the restaurant ──────────────────────
+        // ── DELIVERY: fuera del restaurante ──────────────────────────────────
         setLocations(userLocation, tapped);
         setAppMode('DELIVERY');
         setServiceType('DELIVERY');
@@ -131,43 +123,49 @@ export default function ContextSwitcher() {
     );
   }
 
-  // ── Map active ──────────────────────────────────────────────────────────────
+  // ── Mapbox map active ───────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <MapView
         style={StyleSheet.absoluteFillObject}
-        initialRegion={{
-          latitude: userLocation.latitude,
-          longitude: userLocation.longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        }}
         onPress={onMapPress}
-        showsUserLocation
-        showsMyLocationButton={Platform.OS === 'android'}
+        logoEnabled={false}
+        attributionEnabled={false}
+        scaleBarEnabled={false}
       >
-        {/* User pin — provided by showsUserLocation above (blue dot) */}
+        {/* Camera positioned on user's GPS location */}
+        <Camera
+          defaultSettings={{
+            centerCoordinate: [userLocation.longitude, userLocation.latitude],
+            zoomLevel: 15,
+          }}
+        />
 
-        {/* Restaurant pin — appears when user taps */}
+        {/* Built-in blue dot for current user position */}
+        <UserLocation visible androidRenderMode="compass" />
+
+        {/* Restaurant pin — appears after user taps the map */}
         {restaurant && (
-          <Marker
-            coordinate={restaurant}
-            title="Restaurante"
-            description="Punto de referencia seleccionado"
-            pinColor={Brand.primary}
-          />
+          <PointAnnotation
+            id="restaurant-pin"
+            coordinate={[restaurant.longitude, restaurant.latitude]}
+          >
+            <View style={styles.restaurantPin}>
+              <View style={styles.restaurantPinDot} />
+            </View>
+          </PointAnnotation>
         )}
       </MapView>
 
-      {/* Instruction overlay */}
+      {/* Instruction card */}
       <View style={styles.instructionCard}>
         <MapPinned size={20} color={Brand.primary} strokeWidth={1.8} />
         <View style={styles.instructionText}>
           <Text style={styles.instructionTitle}>Selecciona el restaurante</Text>
           <Text style={styles.instructionBody}>
-            Toca en el mapa donde está el restaurante. La app detectará si estás
-            dentro ({Config.restaurant.geofenceRadiusMeters} m) para activar el
-            modo correcto.
+            Toca en el mapa donde está el restaurante. Si estás a menos de{' '}
+            {Config.restaurant.geofenceRadiusMeters} m se activa el escáner QR;
+            si estás más lejos, se activa el modo delivery.
           </Text>
         </View>
       </View>
@@ -176,10 +174,7 @@ export default function ContextSwitcher() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
+  container: { flex: 1 },
   centered: {
     flex: 1,
     alignItems: 'center',
@@ -187,10 +182,30 @@ const styles = StyleSheet.create({
     gap: 16,
     backgroundColor: Brand.background,
   },
-  loadingText: {
-    fontSize: 14,
-    color: Brand.textSecondary,
+  loadingText: { fontSize: 14, color: Brand.textSecondary },
+  // Restaurant pin marker
+  restaurantPin: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Brand.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
+  restaurantPinDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+  },
+  // Instruction overlay card
   instructionCard: {
     position: 'absolute',
     bottom: 24,
@@ -210,10 +225,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Brand.border,
   },
-  instructionText: {
-    flex: 1,
-    gap: 4,
-  },
+  instructionText: { flex: 1, gap: 4 },
   instructionTitle: {
     fontSize: 15,
     fontWeight: '700',

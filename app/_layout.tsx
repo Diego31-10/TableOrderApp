@@ -5,9 +5,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { StripeProvider } from '@stripe/stripe-react-native';
+import Mapbox from '@rnmapbox/maps';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { preloadBeep } from '@/src/lib/core/sound/SoundService';
+
+// Initialise Mapbox public token once at app startup.
+// The secret download token (MAPBOX_SECRET_TOKEN) lives in app.config.js
+// and is only consumed at native build time — not at runtime.
+Mapbox.setAccessToken(process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '');
 
 export {
   ErrorBoundary,
