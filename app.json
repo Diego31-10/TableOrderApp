@@ -13,7 +13,10 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Necesitamos tu ubicación para saber si estás en el restaurante o necesitas delivery."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +28,9 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
       ],
       "package": "com.diegos31.TableOrderApp"
     },
@@ -50,7 +55,14 @@
           "enableGooglePay": true
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Necesitamos tu ubicación para detectar si estás en el restaurante."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
