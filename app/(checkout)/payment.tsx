@@ -8,20 +8,23 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, CreditCard, Lock, CheckCircle, XCircle, Cpu } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+
 import { Brand } from '@/constants/Colors';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { useTableStore } from '@/src/stores/useTableStore';
+import { useLocationStore } from '@/src/stores/useLocationStore';
 import { processMockPayment } from '@/src/lib/core/payments/paymentService';
 import { sendPaymentNotification } from '@/src/lib/core/notifications/NotificationService';
+import { generateTicketPDF } from '@/src/lib/services/pdfService';
+import { sendTicketToTelegram } from '@/src/lib/services/telegramService';
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCardNumber(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 16);
@@ -57,16 +60,11 @@ function CardPreview({ number, holder, expiry }: CardPreviewProps) {
       end={{ x: 1, y: 1 }}
       style={styles.card}
     >
-      {/* Card top row */}
       <View style={styles.cardTopRow}>
         <Cpu size={28} color="rgba(255,255,255,0.6)" strokeWidth={1.2} />
         <Text style={styles.cardBrand}>TABLEORDER</Text>
       </View>
-
-      {/* Card number */}
       <Text style={styles.cardNumber}>{maskCardDisplay(number)}</Text>
-
-      {/* Card bottom row */}
       <View style={styles.cardBottomRow}>
         <View>
           <Text style={styles.cardLabel}>TITULAR</Text>
@@ -79,8 +77,6 @@ function CardPreview({ number, holder, expiry }: CardPreviewProps) {
           <Text style={styles.cardValue}>{expiry || 'MM/AA'}</Text>
         </View>
       </View>
-
-      {/* Decorative circle */}
       <View style={styles.cardCircle1} />
       <View style={styles.cardCircle2} />
     </LinearGradient>
@@ -94,8 +90,11 @@ function OrderSummary() {
   const total = useCartStore((s) => s.total);
   const isBirthdayMode = useCartStore((s) => s.isBirthdayMode);
   const discount = useCartStore((s) => s.discount);
+  const shippingCost = useCartStore((s) => s.shippingCost);
+  const serviceType = useCartStore((s) => s.serviceType);
 
   const subtotal = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const grandTotal = total + shippingCost;
 
   return (
     <View style={styles.summary}>
@@ -110,24 +109,39 @@ function OrderSummary() {
           </Text>
         </View>
       ))}
+
       {isBirthdayMode && (
         <View style={styles.summaryRow}>
           <Text style={styles.discountLabel}>
             Descuento ({Math.round(discount * 100)}% OFF)
           </Text>
-          <Text style={styles.discountValue}>
-            -${(subtotal - total).toFixed(2)}
-          </Text>
+          <Text style={styles.discountValue}>-${(subtotal - total).toFixed(2)}</Text>
         </View>
       )}
+
+      {serviceType === 'DELIVERY' && shippingCost > 0 && (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryItem}>Costo de envío</Text>
+          <Text style={styles.summaryItemPrice}>${shippingCost.toFixed(2)}</Text>
+        </View>
+      )}
+
       <View style={styles.divider} />
       <View style={styles.summaryRow}>
         <Text style={styles.totalLabel}>Total</Text>
-        <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+        <Text style={styles.totalValue}>${grandTotal.toFixed(2)}</Text>
       </View>
     </View>
   );
 }
+
+// ─── Loading step labels ──────────────────────────────────────────────────────
+
+const LOADING_LABELS: Record<string, string> = {
+  payment: 'Validando con el banco...',
+  ticket: 'Generando ticket PDF...',
+  telegram: 'Enviando comprobante...',
+};
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -135,17 +149,31 @@ type PaymentState = 'idle' | 'loading' | 'success' | 'error';
 
 export default function PaymentScreen() {
   const router = useRouter();
+
+  // Store selectors
+  const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
+  const discount = useCartStore((s) => s.discount);
+  const shippingCost = useCartStore((s) => s.shippingCost);
+  const serviceType = useCartStore((s) => s.serviceType);
   const resetCart = useCartStore((s) => s.resetCart);
+
   const currentTable = useTableStore((s) => s.currentTable);
   const clearSession = useTableStore((s) => s.clearSession);
 
+  const resetLocation = useLocationStore((s) => s.resetLocation);
+
+  // Local state
   const [cardNumber, setCardNumber] = useState('');
   const [holder, setHolder] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [paymentState, setPaymentState] = useState<PaymentState>('idle');
+  const [loadingStep, setLoadingStep] = useState('payment');
   const [errorMsg, setErrorMsg] = useState('');
+
+  const subtotal = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const grandTotal = total + shippingCost;
 
   const isFormValid =
     cardNumber.replace(/\s/g, '').length === 16 &&
@@ -153,30 +181,84 @@ export default function PaymentScreen() {
     expiry.length === 5 &&
     cvv.length >= 3;
 
+  // ── Orchestrated payment flow ─────────────────────────────────────────────
   const handlePay = useCallback(async () => {
     if (!isFormValid || paymentState === 'loading') return;
 
     setPaymentState('loading');
+    setLoadingStep('payment');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    const result = await processMockPayment(total);
+    // Step 1: Process payment
+    const result = await processMockPayment(grandTotal);
 
-    if (result.success) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await sendPaymentNotification(total, currentTable?.displayName ?? 'tu mesa');
-      setPaymentState('success');
-    } else {
+    if (!result.success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setErrorMsg(result.error);
       setPaymentState('error');
+      return;
     }
-  }, [isFormValid, paymentState, total, currentTable]);
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Step 2: Generate PDF ticket
+    setLoadingStep('ticket');
+    let pdfUri = '';
+    try {
+      pdfUri = await generateTicketPDF({
+        items,
+        subtotal,
+        discount,
+        total,
+        shippingCost,
+        serviceType,
+        tableName: currentTable?.displayName,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('[PDF] Generation failed:', err);
+    }
+
+    // Step 3: Send to Telegram (silent failure if unconfigured)
+    setLoadingStep('telegram');
+    if (pdfUri) {
+      await sendTicketToTelegram(pdfUri);
+    }
+
+    // Step 4: Local push notification
+    const serviceName =
+      serviceType === 'TABLE'
+        ? (currentTable?.displayName ?? 'tu mesa')
+        : 'delivery';
+    await sendPaymentNotification(grandTotal, serviceName);
+
+    setPaymentState('success');
+  }, [
+    isFormValid,
+    paymentState,
+    grandTotal,
+    items,
+    subtotal,
+    discount,
+    total,
+    shippingCost,
+    serviceType,
+    currentTable,
+  ]);
+
+  // ── Success navigation decision ───────────────────────────────────────────
   const handleSuccessDismiss = useCallback(() => {
     resetCart();
-    clearSession();
-    router.replace('/(tabs)');
-  }, []);
+    if (serviceType === 'TABLE') {
+      // Table order: clear session and go back to scanner/context switcher
+      clearSession();
+      resetLocation();
+      router.replace('/(tabs)');
+    } else {
+      // Delivery order: navigate to track-order to show the route
+      router.replace('/(delivery)/track-order');
+    }
+  }, [serviceType, resetCart, clearSession, resetLocation, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -196,10 +278,8 @@ export default function PaymentScreen() {
       >
         <OrderSummary />
 
-        {/* Card preview */}
         <CardPreview number={cardNumber} holder={holder} expiry={expiry} />
 
-        {/* Form */}
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Datos de pago</Text>
 
@@ -272,10 +352,12 @@ export default function PaymentScreen() {
           {paymentState === 'loading' ? (
             <>
               <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.payBtnText}>Validando con el banco...</Text>
+              <Text style={styles.payBtnText}>
+                {LOADING_LABELS[loadingStep] ?? 'Procesando...'}
+              </Text>
             </>
           ) : (
-            <Text style={styles.payBtnText}>Pagar ${total.toFixed(2)}</Text>
+            <Text style={styles.payBtnText}>Pagar ${grandTotal.toFixed(2)}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -287,12 +369,14 @@ export default function PaymentScreen() {
             <CheckCircle size={64} color={Brand.success} strokeWidth={1.5} />
             <Text style={styles.modalTitle}>Pago exitoso</Text>
             <Text style={styles.modalBody}>
-              Has pagado correctamente ${total.toFixed(2)} en tu orden de{' '}
-              <Text style={styles.modalBold}>{currentTable?.displayName ?? 'tu mesa'}</Text>.
-              {'\n'}Gracias por tu visita.
+              {serviceType === 'TABLE'
+                ? `Pagaste $${grandTotal.toFixed(2)} en ${currentTable?.displayName ?? 'tu mesa'}.\nGracias por tu visita.`
+                : `Pagaste $${grandTotal.toFixed(2)}.\nTu pedido está en camino.`}
             </Text>
             <TouchableOpacity style={styles.modalBtn} onPress={handleSuccessDismiss}>
-              <Text style={styles.modalBtnText}>Finalizar</Text>
+              <Text style={styles.modalBtnText}>
+                {serviceType === 'TABLE' ? 'Finalizar' : 'Ver ruta'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -321,10 +405,7 @@ export default function PaymentScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Brand.background,
-  },
+  container: { flex: 1, backgroundColor: Brand.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -347,10 +428,8 @@ const styles = StyleSheet.create({
     color: Brand.textPrimary,
     letterSpacing: -0.3,
   },
-  scrollContent: {
-    paddingBottom: 24,
-  },
-  // Order summary
+  scrollContent: { paddingBottom: 24 },
+  // Summary
   summary: {
     marginHorizontal: 20,
     backgroundColor: Brand.surface,
@@ -376,36 +455,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
   },
-  summaryItemPrice: {
-    fontSize: 14,
-    color: Brand.textPrimary,
-    fontWeight: '600',
-  },
-  discountLabel: {
-    fontSize: 14,
-    color: Brand.birthday,
-    fontWeight: '600',
-  },
-  discountValue: {
-    fontSize: 14,
-    color: Brand.birthday,
-    fontWeight: '700',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Brand.border,
-    marginVertical: 10,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Brand.textPrimary,
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Brand.primary,
-  },
+  summaryItemPrice: { fontSize: 14, color: Brand.textPrimary, fontWeight: '600' },
+  discountLabel: { fontSize: 14, color: Brand.birthday, fontWeight: '600' },
+  discountValue: { fontSize: 14, color: Brand.birthday, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: Brand.border, marginVertical: 10 },
+  totalLabel: { fontSize: 16, fontWeight: '700', color: Brand.textPrimary },
+  totalValue: { fontSize: 18, fontWeight: '800', color: Brand.primary },
   // Virtual card
   card: {
     marginHorizontal: 20,
@@ -472,18 +527,9 @@ const styles = StyleSheet.create({
     bottom: -40,
   },
   // Form
-  form: {
-    marginHorizontal: 20,
-    gap: 16,
-  },
-  inputGroup: {
-    gap: 6,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Brand.textSecondary,
-  },
+  form: { marginHorizontal: 20, gap: 16 },
+  inputGroup: { gap: 6 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: Brand.textSecondary },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -495,12 +541,7 @@ const styles = StyleSheet.create({
     gap: 10,
     height: 52,
   },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: Brand.textPrimary,
-    height: '100%',
-  },
+  input: { flex: 1, fontSize: 15, color: Brand.textPrimary, height: '100%' },
   inputStandalone: {
     backgroundColor: Brand.surface,
     borderRadius: 12,
@@ -509,10 +550,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 52,
   },
-  inputHalfRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  inputHalfRow: { flexDirection: 'row', gap: 12 },
   // Footer
   footer: {
     paddingHorizontal: 20,
@@ -539,12 +577,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
-  payBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
+  payBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
   // Modals
   modalOverlay: {
     flex: 1,
@@ -561,10 +594,7 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
-  modalCardError: {
-    borderWidth: 1,
-    borderColor: Brand.error,
-  },
+  modalCardError: { borderWidth: 1, borderColor: Brand.error },
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
@@ -577,10 +607,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  modalBold: {
-    fontWeight: '700',
-    color: Brand.textPrimary,
-  },
   modalBtn: {
     backgroundColor: Brand.success,
     borderRadius: 14,
@@ -590,12 +616,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  modalBtnError: {
-    backgroundColor: Brand.error,
-  },
-  modalBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  modalBtnError: { backgroundColor: Brand.error },
+  modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
