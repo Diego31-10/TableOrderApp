@@ -42,6 +42,6 @@ yarn-error.*
 /android
 .vscode/
 .claude/
-Strategy.md
-SETUP.md
-tableorder.md
+Strategy*.md
+SETUP*.md
+tableorder*.md
