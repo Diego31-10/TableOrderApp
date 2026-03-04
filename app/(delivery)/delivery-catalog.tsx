@@ -98,8 +98,9 @@ export default function DeliveryCatalog() {
   const grandTotal = (total + shippingCost).toFixed(2);
 
   const handleBack = () => {
-    resetLocation();
-    router.back();
+    resetLocation();          // limpia ruta y modo
+    router.replace('/(tabs)'); // vuelve al home en lugar de usar back(),
+                               // así el stack no acumula la pantalla de delivery
   };
 
   return (

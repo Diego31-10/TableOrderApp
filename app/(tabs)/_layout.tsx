@@ -1,8 +1,6 @@
 import { Stack } from 'expo-router';
 import { Brand } from '@/constants/Colors';
 
-// La barra de tabs ha sido eliminada.
-// La navegación ahora parte desde la pantalla de inicio (home.tsx).
 export default function TabLayout() {
   return (
     <Stack
@@ -11,8 +9,20 @@ export default function TabLayout() {
         contentStyle: { backgroundColor: Brand.background },
       }}
     >
+      {/* Home — mode selection */}
       <Stack.Screen name="index" />
-      <Stack.Screen name="menu" />
+
+      {/* QR scanner — "En el local" flow */}
+      <Stack.Screen
+        name="scanner"
+        options={{ animation: 'slide_from_right' }}
+      />
+
+      {/* Menu — shown after a valid QR scan */}
+      <Stack.Screen
+        name="menu"
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack>
   );
 }

@@ -8,17 +8,23 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
 
 import { Brand } from '@/constants/Colors';
 import ModeCard from '@/src/components/ui/ModeCard';
+import { useLocationStore } from '@/src/stores/useLocationStore';
+import { useCartStore } from '@/src/stores/useCartStore';
 
 const { width } = Dimensions.get('window');
-// 24px padding on each side + 12px gap between cards
 const CARD_SIZE = (width - 48 - 12) / 2;
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const setAppMode = useLocationStore((s) => s.setAppMode);
+  const setServiceType = useCartStore((s) => s.setServiceType);
+
   const headerOpacity = useSharedValue(0);
   const headerY = useSharedValue(-20);
 
@@ -32,12 +38,18 @@ export default function HomeScreen() {
     transform: [{ translateY: headerY.value }],
   }));
 
+  // ── "En el local": set TABLE mode and go to QR scanner ────────────────────
   const handleTableMode = () => {
-    // TODO: navegar al flujo de escáner / mesa
+    setAppMode('SCANNER');
+    setServiceType('TABLE');
+    router.push('/(tabs)/scanner');
   };
 
+  // ── "Delivery": set DELIVERY mode and open the map (ContextSwitcher) ──────
   const handleDeliveryMode = () => {
-    // TODO: navegar al flujo de delivery
+    setAppMode('CHECKING');
+    setServiceType('DELIVERY');
+    router.push('/(delivery)/delivery-catalog');
   };
 
   return (
@@ -98,8 +110,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     justifyContent: 'center',
   },
-
-  // Background blobs
   bgDot1: {
     position: 'absolute',
     width: 300,
@@ -127,8 +137,6 @@ const styles = StyleSheet.create({
     bottom: 180,
     right: 30,
   },
-
-  // Header
   header: {
     marginBottom: 36,
   },
@@ -145,15 +153,11 @@ const styles = StyleSheet.create({
     color: Brand.textSecondary,
     lineHeight: 22,
   },
-
-  // Cards row
   cardsRow: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 32,
   },
-
-  // Bottom hint
   bottomHint: {
     flexDirection: 'row',
     alignItems: 'center',
