@@ -12,13 +12,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, CreditCard, Lock, CheckCircle, XCircle, Cpu } from 'lucide-react-native';
+import { ArrowLeft, CreditCard, Lock, CheckCircle, XCircle, Cpu, ShoppingBag } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { Brand } from '@/constants/Colors';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { useTableStore } from '@/src/stores/useTableStore';
 import { useLocationStore } from '@/src/stores/useLocationStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 import { processMockPayment } from '@/src/lib/core/payments/paymentService';
 import { sendPaymentNotification } from '@/src/lib/core/notifications/NotificationService';
 import { generateTicketPDF } from '@/src/lib/services/pdfService';
@@ -83,6 +84,24 @@ function CardPreview({ number, holder, expiry }: CardPreviewProps) {
   );
 }
 
+// ─── Empty Cart State ─────────────────────────────────────────────────────────
+
+function EmptyCartState() {
+  const router = useRouter();
+  return (
+    <View style={styles.emptyContainer}>
+      <ShoppingBag size={72} color={Brand.textTertiary} strokeWidth={1.2} />
+      <Text style={styles.emptyTitle}>Tu carrito está vacío</Text>
+      <Text style={styles.emptySubtitle}>
+        Agregá productos al carrito antes de continuar con el pago.
+      </Text>
+      <TouchableOpacity style={styles.emptyBtn} onPress={() => router.back()}>
+        <Text style={styles.emptyBtnText}>Volver al menú</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── Order Summary ────────────────────────────────────────────────────────────
 
 function OrderSummary() {
@@ -109,7 +128,6 @@ function OrderSummary() {
           </Text>
         </View>
       ))}
-
       {isBirthdayMode && (
         <View style={styles.summaryRow}>
           <Text style={styles.discountLabel}>
@@ -118,14 +136,12 @@ function OrderSummary() {
           <Text style={styles.discountValue}>-${(subtotal - total).toFixed(2)}</Text>
         </View>
       )}
-
       {serviceType === 'DELIVERY' && shippingCost > 0 && (
         <View style={styles.summaryRow}>
           <Text style={styles.summaryItem}>Costo de envío</Text>
           <Text style={styles.summaryItemPrice}>${shippingCost.toFixed(2)}</Text>
         </View>
       )}
-
       <View style={styles.divider} />
       <View style={styles.summaryRow}>
         <Text style={styles.totalLabel}>Total</Text>
@@ -135,22 +151,63 @@ function OrderSummary() {
   );
 }
 
+// ─── Confirmation Modal ───────────────────────────────────────────────────────
+
+interface ConfirmModalProps {
+  visible: boolean;
+  grandTotal: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmModal({ visible, grandTotal, onConfirm, onCancel }: ConfirmModalProps) {
+  const items = useCartStore((s) => s.items);
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={styles.confirmIconWrap}>
+            <CreditCard size={36} color={Brand.primary} strokeWidth={1.5} />
+          </View>
+          <Text style={styles.modalTitle}>¿Confirmar pago?</Text>
+          <Text style={styles.modalBody}>
+            {totalItems} {totalItems === 1 ? 'producto' : 'productos'} · Total{' '}
+            <Text style={{ color: Brand.primary, fontWeight: '800' }}>
+              ${grandTotal.toFixed(2)}
+            </Text>
+          </Text>
+          <View style={styles.confirmBtnRow}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmBtn} onPress={onConfirm}>
+              <Text style={styles.confirmBtnText}>Pagar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Loading step labels ──────────────────────────────────────────────────────
 
 const LOADING_LABELS: Record<string, string> = {
   payment: 'Validando con el banco...',
   ticket: 'Generando ticket PDF...',
   telegram: 'Enviando comprobante...',
+  history: 'Guardando orden...',
 };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
-type PaymentState = 'idle' | 'loading' | 'success' | 'error';
+type PaymentState = 'idle' | 'confirming' | 'loading' | 'success' | 'error';
 
 export default function PaymentScreen() {
   const router = useRouter();
 
-  // Store selectors
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
   const discount = useCartStore((s) => s.discount);
@@ -163,7 +220,8 @@ export default function PaymentScreen() {
 
   const resetLocation = useLocationStore((s) => s.resetLocation);
 
-  // Local state
+  const saveOrder = useOrderHistoryStore((s) => s.saveOrder);
+
   const [cardNumber, setCardNumber] = useState('');
   const [holder, setHolder] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -181,15 +239,33 @@ export default function PaymentScreen() {
     expiry.length === 5 &&
     cvv.length >= 3;
 
-  // ── Orchestrated payment flow ─────────────────────────────────────────────
-  const handlePay = useCallback(async () => {
-    if (!isFormValid || paymentState === 'loading') return;
+  // ── Empty cart guard ──────────────────────────────────────────────────────
+  if (items.length === 0 && paymentState === 'idle') {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Checkout</Text>
+          <Lock size={18} color={Brand.textSecondary} strokeWidth={1.8} />
+        </View>
+        <EmptyCartState />
+      </SafeAreaView>
+    );
+  }
 
+  const handlePayPress = useCallback(() => {
+    if (!isFormValid || paymentState === 'loading') return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPaymentState('confirming');
+  }, [isFormValid, paymentState]);
+
+  const handleConfirmedPay = useCallback(async () => {
     setPaymentState('loading');
     setLoadingStep('payment');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Step 1: Process payment
     const result = await processMockPayment(grandTotal);
 
     if (!result.success) {
@@ -201,7 +277,6 @@ export default function PaymentScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Step 2: Generate PDF ticket
     setLoadingStep('ticket');
     let pdfUri = '';
     try {
@@ -219,13 +294,23 @@ export default function PaymentScreen() {
       console.error('[PDF] Generation failed:', err);
     }
 
-    // Step 3: Send to Telegram (silent failure if unconfigured)
     setLoadingStep('telegram');
     if (pdfUri) {
       await sendTicketToTelegram(pdfUri);
     }
 
-    // Step 4: Local push notification
+    setLoadingStep('history');
+    await saveOrder({
+      serviceType,
+      tableName: currentTable?.displayName,
+      items,
+      subtotal,
+      discount,
+      total,
+      shippingCost,
+      grandTotal,
+    });
+
     const serviceName =
       serviceType === 'TABLE'
         ? (currentTable?.displayName ?? 'tu mesa')
@@ -233,36 +318,21 @@ export default function PaymentScreen() {
     await sendPaymentNotification(grandTotal, serviceName);
 
     setPaymentState('success');
-  }, [
-    isFormValid,
-    paymentState,
-    grandTotal,
-    items,
-    subtotal,
-    discount,
-    total,
-    shippingCost,
-    serviceType,
-    currentTable,
-  ]);
+  }, [grandTotal, items, subtotal, discount, total, shippingCost, serviceType, currentTable, saveOrder]);
 
-  // ── Success navigation decision ───────────────────────────────────────────
   const handleSuccessDismiss = useCallback(() => {
     resetCart();
     if (serviceType === 'TABLE') {
-      // Table order: clear session and go back to scanner/context switcher
       clearSession();
       resetLocation();
       router.replace('/(tabs)');
     } else {
-      // Delivery order: navigate to track-order to show the route
       router.replace('/(delivery)/track-order');
     }
   }, [serviceType, resetCart, clearSession, resetLocation, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
@@ -277,7 +347,6 @@ export default function PaymentScreen() {
         showsVerticalScrollIndicator={false}
       >
         <OrderSummary />
-
         <CardPreview number={cardNumber} holder={holder} expiry={expiry} />
 
         <View style={styles.form}>
@@ -341,11 +410,10 @@ export default function PaymentScreen() {
         </View>
       </ScrollView>
 
-      {/* Pay button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
-          onPress={handlePay}
+          onPress={handlePayPress}
           disabled={!isFormValid || paymentState === 'loading'}
           activeOpacity={0.85}
         >
@@ -362,7 +430,13 @@ export default function PaymentScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Success modal */}
+      <ConfirmModal
+        visible={paymentState === 'confirming'}
+        grandTotal={grandTotal}
+        onConfirm={handleConfirmedPay}
+        onCancel={() => setPaymentState('idle')}
+      />
+
       <Modal visible={paymentState === 'success'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -382,7 +456,6 @@ export default function PaymentScreen() {
         </View>
       </Modal>
 
-      {/* Error modal */}
       <Modal visible={paymentState === 'error'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, styles.modalCardError]}>
@@ -429,7 +502,23 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   scrollContent: { paddingBottom: 24 },
-  // Summary
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    gap: 12,
+  },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: Brand.textPrimary, textAlign: 'center' },
+  emptySubtitle: { fontSize: 14, color: Brand.textSecondary, textAlign: 'center', lineHeight: 21 },
+  emptyBtn: {
+    marginTop: 8,
+    backgroundColor: Brand.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   summary: {
     marginHorizontal: 20,
     backgroundColor: Brand.surface,
@@ -437,31 +526,20 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Brand.textPrimary,
-    marginBottom: 14,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Brand.textPrimary, marginBottom: 14 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  summaryItem: {
-    fontSize: 14,
-    color: Brand.textSecondary,
-    flex: 1,
-    marginRight: 8,
-  },
+  summaryItem: { fontSize: 14, color: Brand.textSecondary, flex: 1, marginRight: 8 },
   summaryItemPrice: { fontSize: 14, color: Brand.textPrimary, fontWeight: '600' },
   discountLabel: { fontSize: 14, color: Brand.birthday, fontWeight: '600' },
   discountValue: { fontSize: 14, color: Brand.birthday, fontWeight: '700' },
   divider: { height: 1, backgroundColor: Brand.border, marginVertical: 10 },
   totalLabel: { fontSize: 16, fontWeight: '700', color: Brand.textPrimary },
   totalValue: { fontSize: 18, fontWeight: '800', color: Brand.primary },
-  // Virtual card
   card: {
     marginHorizontal: 20,
     borderRadius: 20,
@@ -471,62 +549,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     justifyContent: 'space-between',
   },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardBrand: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: 2,
-  },
-  cardNumber: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
-    letterSpacing: 3,
-    alignSelf: 'center',
-  },
-  cardBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  cardLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1.5,
-    marginBottom: 3,
-  },
-  cardValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-    letterSpacing: 0.5,
-    maxWidth: 160,
-  },
+  cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardBrand: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: 2 },
+  cardNumber: { fontSize: 20, fontWeight: '600', color: '#fff', letterSpacing: 3, alignSelf: 'center' },
+  cardBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  cardLabel: { fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, marginBottom: 3 },
+  cardValue: { fontSize: 13, fontWeight: '600', color: '#fff', letterSpacing: 0.5, maxWidth: 160 },
   cardCircle1: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    right: -60,
-    top: -60,
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.04)', right: -60, top: -60,
   },
   cardCircle2: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    left: -30,
-    bottom: -40,
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.04)', left: -30, bottom: -40,
   },
-  // Form
   form: { marginHorizontal: 20, gap: 16 },
   inputGroup: { gap: 6 },
   inputLabel: { fontSize: 13, fontWeight: '600', color: Brand.textSecondary },
@@ -551,7 +587,6 @@ const styles = StyleSheet.create({
     height: 52,
   },
   inputHalfRow: { flexDirection: 'row', gap: 12 },
-  // Footer
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -572,13 +607,8 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  payBtnDisabled: {
-    backgroundColor: Brand.surfaceElevated,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
+  payBtnDisabled: { backgroundColor: Brand.surfaceElevated, shadowOpacity: 0, elevation: 0 },
   payBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
@@ -595,18 +625,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modalCardError: { borderWidth: 1, borderColor: Brand.error },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Brand.textPrimary,
-    textAlign: 'center',
-  },
-  modalBody: {
-    fontSize: 15,
-    color: Brand.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
+  modalTitle: { fontSize: 22, fontWeight: '800', color: Brand.textPrimary, textAlign: 'center' },
+  modalBody: { fontSize: 15, color: Brand.textSecondary, textAlign: 'center', lineHeight: 22 },
   modalBtn: {
     backgroundColor: Brand.success,
     borderRadius: 14,
@@ -618,4 +638,37 @@ const styles = StyleSheet.create({
   },
   modalBtnError: { backgroundColor: Brand.error },
   modalBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  confirmIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: `${Brand.primary}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  confirmBtnRow: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 8 },
+  cancelBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: Brand.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Brand.border,
+  },
+  cancelBtnText: { color: Brand.textSecondary, fontSize: 15, fontWeight: '600' },
+  confirmBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: Brand.primary,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
