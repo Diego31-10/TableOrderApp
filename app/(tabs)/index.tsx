@@ -38,18 +38,20 @@ export default function HomeScreen() {
     transform: [{ translateY: headerY.value }],
   }));
 
-  // ── "En el local": set TABLE mode and go to QR scanner ────────────────────
+  // ── "En el local": ir directo al escáner QR ───────────────────────────────
   const handleTableMode = () => {
     setAppMode('SCANNER');
     setServiceType('TABLE');
     router.push('/(tabs)/scanner');
   };
 
-  // ── "Delivery": set DELIVERY mode and open the map (ContextSwitcher) ──────
+  // ── "Delivery": ir al mapa para que el usuario ubique el restaurante ───────
+  // ContextSwitcher detecta la ubicación, el usuario toca el pin del
+  // restaurante y automáticamente navega a delivery-catalog.
   const handleDeliveryMode = () => {
     setAppMode('CHECKING');
     setServiceType('DELIVERY');
-    router.push('/(delivery)/delivery-catalog');
+    router.push('/(tabs)/map');
   };
 
   return (

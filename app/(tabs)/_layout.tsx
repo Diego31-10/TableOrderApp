@@ -18,6 +18,12 @@ export default function TabLayout() {
         options={{ animation: 'slide_from_right' }}
       />
 
+      {/* Map + ContextSwitcher — "Delivery" flow */}
+      <Stack.Screen
+        name="map"
+        options={{ animation: 'slide_from_right' }}
+      />
+
       {/* Menu — shown after a valid QR scan */}
       <Stack.Screen
         name="menu"
