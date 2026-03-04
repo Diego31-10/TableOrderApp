@@ -1,79 +1,172 @@
-import { View, StyleSheet, Text } from 'react-native';
+import { useEffect } from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CameraScanner from '@/src/components/scanner/CameraScanner';
-import ContextSwitcher from '@/src/components/location/ContextSwitcher';
+import { Bike, QrCode } from 'lucide-react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { Brand } from '@/constants/Colors';
-import { useLocationStore } from '@/src/stores/useLocationStore';
+import ModeCard from '@/src/components/ui/ModeCard';
 
-export default function MainTab() {
-  const appMode = useLocationStore((s) => s.appMode);
+const { width } = Dimensions.get('window');
+// 24px padding on each side + 12px gap between cards
+const CARD_SIZE = (width - 48 - 12) / 2;
 
-  // ── Geofencing check: show map to determine mode ───────────────────────────
-  if (appMode === 'CHECKING') {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Bienvenido</Text>
-          <Text style={styles.subtitle}>
-            Toca el mapa para seleccionar el restaurante
-          </Text>
-        </View>
-        <View style={styles.mapContainer}>
-          <ContextSwitcher />
-        </View>
-      </SafeAreaView>
-    );
-  }
+// ─── Home Screen ──────────────────────────────────────────────────────────────
 
-  // ── Scanner mode: user is inside the restaurant ────────────────────────────
+export default function HomeScreen() {
+  const headerOpacity = useSharedValue(0);
+  const headerY = useSharedValue(-20);
+
+  useEffect(() => {
+    headerOpacity.value = withTiming(1, { duration: 600 });
+    headerY.value = withSpring(0, { damping: 20, stiffness: 100 });
+  }, []);
+
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerY.value }],
+  }));
+
+  const handleTableMode = () => {
+    // TODO: navegar al flujo de escáner / mesa
+  };
+
+  const handleDeliveryMode = () => {
+    // TODO: navegar al flujo de delivery
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Escanear mesa</Text>
-        <Text style={styles.subtitle}>
-          Apunta al codigo QR para comenzar tu pedido
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+
+      {/* Background decorative blobs */}
+      <View style={styles.bgDot1} />
+      <View style={styles.bgDot2} />
+      <View style={styles.bgDot3} />
+
+      {/* Header */}
+      <Animated.View style={[styles.header, headerStyle]}>
+        <Text style={styles.headline}>
+          Bienvenido{'\n'}de nuevo!
         </Text>
+        <Text style={styles.subheadline}>
+          Selecciona tu modalidad
+        </Text>
+      </Animated.View>
+
+      {/* Mode selection buttons */}
+      <View style={styles.cardsRow}>
+        <ModeCard
+          icon={<QrCode size={36} color="#fff" strokeWidth={1.6} />}
+          label="En el local"
+          sublabel="Escanea tu mesa y ordena al instante"
+          gradient={['#E25822', '#C04015']}
+          onPress={handleTableMode}
+          size={CARD_SIZE}
+        />
+        <ModeCard
+          icon={<Bike size={36} color="#fff" strokeWidth={1.6} />}
+          label="Delivery"
+          sublabel="Recibe tu pedido donde estés"
+          gradient={['#2A2A2A', '#1A1A1A']}
+          onPress={handleDeliveryMode}
+          size={CARD_SIZE}
+        />
       </View>
-      <View style={styles.cameraContainer}>
-        <CameraScanner />
-      </View>
+
+      {/* Bottom hint */}
+      <Animated.View style={[styles.bottomHint, { opacity: headerOpacity }]}>
+        <View style={styles.hintDivider} />
+        <Text style={styles.hintText}>Experiencia adaptada a tu ubicación</Text>
+        <View style={styles.hintDivider} />
+      </Animated.View>
+
     </SafeAreaView>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Brand.background,
-  },
-  header: {
     paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 16,
+    justifyContent: 'center',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
+
+  // Background blobs
+  bgDot1: {
+    position: 'absolute',
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(226, 88, 34, 0.06)',
+    top: -80,
+    right: -80,
+  },
+  bgDot2: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(226, 88, 34, 0.04)',
+    bottom: 60,
+    left: -60,
+  },
+  bgDot3: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(226, 88, 34, 0.08)',
+    bottom: 180,
+    right: 30,
+  },
+
+  // Header
+  header: {
+    marginBottom: 36,
+  },
+  headline: {
+    fontSize: 36,
+    fontWeight: '800',
     color: Brand.textPrimary,
-    letterSpacing: -0.3,
+    letterSpacing: -1,
+    lineHeight: 42,
+    marginBottom: 10,
   },
-  subtitle: {
-    fontSize: 14,
+  subheadline: {
+    fontSize: 15,
     color: Brand.textSecondary,
-    marginTop: 4,
+    lineHeight: 22,
   },
-  mapContainer: {
-    flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginHorizontal: 16,
-    marginBottom: 16,
+
+  // Cards row
+  cardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 32,
   },
-  cameraContainer: {
+
+  // Bottom hint
+  bottomHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  hintDivider: {
     flex: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginHorizontal: 16,
-    marginBottom: 16,
+    height: 1,
+    backgroundColor: Brand.border,
+  },
+  hintText: {
+    fontSize: 12,
+    color: Brand.textTertiary,
+    letterSpacing: 0.2,
   },
 });
