@@ -12,7 +12,7 @@
 ![Mapbox](https://img.shields.io/badge/Mapbox-Mapas-000000?style=for-the-badge&logo=mapbox&logoColor=white)
 ![Zustand](https://img.shields.io/badge/Zustand-5.0-FF6B35?style=for-the-badge)
 
-> 🌐 Also available in [English](./README.md)
+> 📖 [Documentación](https://diego31-10-tableorderapp-25-2.mintlify.app/introduction) · 🌐 Also available in [English](./README.md)
 
 </div>
 
