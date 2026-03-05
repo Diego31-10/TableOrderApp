@@ -85,7 +85,7 @@ export default function ContextSwitcher() {
         setLocations(userLocation, tapped);
         setAppMode('SCANNER');
         setServiceType('TABLE');
-        // index.tsx re-renders from store change — no explicit navigation needed
+        router.replace('/(tabs)/scanner');
       } else {
         // ── DELIVERY: fuera del restaurante ──────────────────────────────────
         setLocations(userLocation, tapped);
