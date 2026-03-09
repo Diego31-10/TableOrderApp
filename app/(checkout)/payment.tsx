@@ -163,7 +163,6 @@ export default function PaymentScreen() {
 
   const resetLocation = useLocationStore((s) => s.resetLocation);
 
-  // Selector agregado — aún no usado en handlePay
   const addOrder = useOrderHistoryStore((s) => s.addOrder);
 
   const [cardNumber, setCardNumber] = useState('');
@@ -229,6 +228,19 @@ export default function PaymentScreen() {
         : 'delivery';
     await sendPaymentNotification(grandTotal, serviceName);
 
+    // Guardar en historial
+    addOrder({
+      id: `order-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      items,
+      subtotal,
+      discount,
+      total,
+      shippingCost,
+      serviceType,
+      tableName: currentTable?.displayName,
+    });
+
     setPaymentState('success');
   }, [
     isFormValid,
@@ -241,6 +253,7 @@ export default function PaymentScreen() {
     shippingCost,
     serviceType,
     currentTable,
+    addOrder,
   ]);
 
   const handleSuccessDismiss = useCallback(() => {
@@ -386,6 +399,8 @@ export default function PaymentScreen() {
     </SafeAreaView>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Brand.background },
