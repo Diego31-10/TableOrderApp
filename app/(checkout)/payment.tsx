@@ -19,6 +19,7 @@ import { Brand } from '@/constants/Colors';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { useTableStore } from '@/src/stores/useTableStore';
 import { useLocationStore } from '@/src/stores/useLocationStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 import { processMockPayment } from '@/src/lib/core/payments/paymentService';
 import { sendPaymentNotification } from '@/src/lib/core/notifications/NotificationService';
 import { generateTicketPDF } from '@/src/lib/services/pdfService';
@@ -150,7 +151,6 @@ type PaymentState = 'idle' | 'loading' | 'success' | 'error';
 export default function PaymentScreen() {
   const router = useRouter();
 
-  // Store selectors
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total);
   const discount = useCartStore((s) => s.discount);
@@ -163,7 +163,9 @@ export default function PaymentScreen() {
 
   const resetLocation = useLocationStore((s) => s.resetLocation);
 
-  // Local state
+  // Selector agregado — aún no usado en handlePay
+  const addOrder = useOrderHistoryStore((s) => s.addOrder);
+
   const [cardNumber, setCardNumber] = useState('');
   const [holder, setHolder] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -181,7 +183,6 @@ export default function PaymentScreen() {
     expiry.length === 5 &&
     cvv.length >= 3;
 
-  // ── Orchestrated payment flow ─────────────────────────────────────────────
   const handlePay = useCallback(async () => {
     if (!isFormValid || paymentState === 'loading') return;
 
@@ -189,7 +190,6 @@ export default function PaymentScreen() {
     setLoadingStep('payment');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Step 1: Process payment
     const result = await processMockPayment(grandTotal);
 
     if (!result.success) {
@@ -201,7 +201,6 @@ export default function PaymentScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Step 2: Generate PDF ticket
     setLoadingStep('ticket');
     let pdfUri = '';
     try {
@@ -219,13 +218,11 @@ export default function PaymentScreen() {
       console.error('[PDF] Generation failed:', err);
     }
 
-    // Step 3: Send to Telegram (silent failure if unconfigured)
     setLoadingStep('telegram');
     if (pdfUri) {
       await sendTicketToTelegram(pdfUri);
     }
 
-    // Step 4: Local push notification
     const serviceName =
       serviceType === 'TABLE'
         ? (currentTable?.displayName ?? 'tu mesa')
@@ -246,23 +243,19 @@ export default function PaymentScreen() {
     currentTable,
   ]);
 
-  // ── Success navigation decision ───────────────────────────────────────────
   const handleSuccessDismiss = useCallback(() => {
     resetCart();
     if (serviceType === 'TABLE') {
-      // Table order: clear session and go back to scanner/context switcher
       clearSession();
       resetLocation();
       router.replace('/(tabs)');
     } else {
-      // Delivery order: navigate to track-order to show the route
       router.replace('/(delivery)/track-order');
     }
   }, [serviceType, resetCart, clearSession, resetLocation, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
@@ -277,12 +270,9 @@ export default function PaymentScreen() {
         showsVerticalScrollIndicator={false}
       >
         <OrderSummary />
-
         <CardPreview number={cardNumber} holder={holder} expiry={expiry} />
-
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Datos de pago</Text>
-
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Numero de tarjeta</Text>
             <View style={styles.inputRow}>
@@ -298,7 +288,6 @@ export default function PaymentScreen() {
               />
             </View>
           </View>
-
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Nombre del titular</Text>
             <TextInput
@@ -310,7 +299,6 @@ export default function PaymentScreen() {
               onChangeText={setHolder}
             />
           </View>
-
           <View style={styles.inputHalfRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.inputLabel}>Vencimiento</Text>
@@ -341,7 +329,6 @@ export default function PaymentScreen() {
         </View>
       </ScrollView>
 
-      {/* Pay button */}
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
@@ -362,7 +349,6 @@ export default function PaymentScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Success modal */}
       <Modal visible={paymentState === 'success'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -382,7 +368,6 @@ export default function PaymentScreen() {
         </View>
       </Modal>
 
-      {/* Error modal */}
       <Modal visible={paymentState === 'error'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, styles.modalCardError]}>
@@ -401,8 +386,6 @@ export default function PaymentScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Brand.background },
@@ -429,7 +412,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   scrollContent: { paddingBottom: 24 },
-  // Summary
   summary: {
     marginHorizontal: 20,
     backgroundColor: Brand.surface,
@@ -461,7 +443,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Brand.border, marginVertical: 10 },
   totalLabel: { fontSize: 16, fontWeight: '700', color: Brand.textPrimary },
   totalValue: { fontSize: 18, fontWeight: '800', color: Brand.primary },
-  // Virtual card
   card: {
     marginHorizontal: 20,
     borderRadius: 20,
@@ -526,7 +507,6 @@ const styles = StyleSheet.create({
     left: -30,
     bottom: -40,
   },
-  // Form
   form: { marginHorizontal: 20, gap: 16 },
   inputGroup: { gap: 6 },
   inputLabel: { fontSize: 13, fontWeight: '600', color: Brand.textSecondary },
@@ -551,7 +531,6 @@ const styles = StyleSheet.create({
     height: 52,
   },
   inputHalfRow: { flexDirection: 'row', gap: 12 },
-  // Footer
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -578,7 +557,6 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   payBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
