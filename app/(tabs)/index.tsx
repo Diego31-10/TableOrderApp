@@ -14,6 +14,7 @@ import { Brand } from '@/constants/Colors';
 import ModeCard from '@/src/components/ui/ModeCard';
 import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = (width - 48 - 12) / 2;
@@ -22,6 +23,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const setAppMode = useLocationStore((s) => s.setAppMode);
   const setServiceType = useCartStore((s) => s.setServiceType);
+  const orders = useOrderHistoryStore((s) => s.orders);
 
   const headerOpacity = useSharedValue(0);
   const headerY = useSharedValue(-20);
@@ -55,12 +57,13 @@ export default function HomeScreen() {
       <View style={styles.bgDot2} />
       <View style={styles.bgDot3} />
 
-      {/* History button — sin conectar al store aún */}
+      {/* History button — dot visible cuando hay órdenes */}
       <TouchableOpacity
         style={styles.historyBtn}
         onPress={() => router.push('/(tabs)/history')}
       >
         <History size={20} color={Brand.textPrimary} strokeWidth={2} />
+        {orders.length > 0 && <View style={styles.historyDot} />}
       </TouchableOpacity>
 
       <Animated.View style={[styles.header, headerStyle]}>
@@ -148,6 +151,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Brand.border,
     zIndex: 10,
+  },
+  historyDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Brand.primary,
   },
   header: {
     marginBottom: 36,
