@@ -66,6 +66,32 @@ import {
             </View>
           ))}
         </View>
+  
+        {/* Totals footer */}
+        <View style={styles.totalsFooter}>
+          {order.discount > 0 && (
+            <View style={styles.footerRow}>
+              <Text style={styles.discountLabel}>
+                Descuento ({Math.round(order.discount * 100)}% OFF)
+              </Text>
+              <Text style={styles.discountValue}>
+                -${(order.subtotal - order.total + order.shippingCost).toFixed(2)}
+              </Text>
+            </View>
+          )}
+          {order.shippingCost > 0 && (
+            <View style={styles.footerRow}>
+              <Text style={styles.footerLabel}>Envío</Text>
+              <Text style={styles.footerValue}>${order.shippingCost.toFixed(2)}</Text>
+            </View>
+          )}
+          <View style={styles.footerRow}>
+            <Text style={styles.footerLabelBold}>Total pagado</Text>
+            <Text style={styles.footerValueBold}>
+              ${(order.total + order.shippingCost).toFixed(2)}
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -92,11 +118,17 @@ import {
   
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Historial</Text>
+          {orders.length > 0 && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{orders.length}</Text>
+            </View>
+          )}
         </View>
   
         <FlatList
@@ -117,6 +149,8 @@ import {
   
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Brand.background },
+  
+    // Header
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -139,8 +173,22 @@ import {
       color: Brand.textPrimary,
       letterSpacing: -0.3,
     },
+    countBadge: {
+      backgroundColor: Brand.primary,
+      borderRadius: 10,
+      minWidth: 26,
+      height: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 8,
+    },
+    countBadgeText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  
+    // List
     listContent: { paddingHorizontal: 16, paddingBottom: 32, gap: 14 },
     emptyList: { flex: 1 },
+  
+    // Card
     card: {
       backgroundColor: Brand.surface,
       borderRadius: 16,
@@ -181,6 +229,8 @@ import {
       color: Brand.primary,
     },
     divider: { height: 1, backgroundColor: Brand.border },
+  
+    // Items
     itemsList: { paddingHorizontal: 14, paddingVertical: 10, gap: 6 },
     itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     itemQty: {
@@ -191,6 +241,27 @@ import {
     },
     itemName: { flex: 1, fontSize: 13, color: Brand.textSecondary },
     itemPrice: { fontSize: 13, fontWeight: '600', color: Brand.textPrimary },
+  
+    // Totals footer
+    totalsFooter: {
+      backgroundColor: Brand.surfaceElevated,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 4,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    footerLabel: { fontSize: 12, color: Brand.textSecondary },
+    footerValue: { fontSize: 12, color: Brand.textSecondary, fontWeight: '600' },
+    footerLabelBold: { fontSize: 13, fontWeight: '700', color: Brand.textPrimary },
+    footerValueBold: { fontSize: 13, fontWeight: '800', color: Brand.textPrimary },
+    discountLabel: { fontSize: 12, color: Brand.birthday, fontWeight: '600' },
+    discountValue: { fontSize: 12, color: Brand.birthday, fontWeight: '700' },
+  
+    // Empty state
     emptyContainer: {
       flex: 1,
       alignItems: 'center',
