@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bike, QrCode } from 'lucide-react-native';
+import { Bike, QrCode, History } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -17,8 +17,6 @@ import { useCartStore } from '@/src/stores/useCartStore';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = (width - 48 - 12) / 2;
-
-// ─── Home Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -38,16 +36,12 @@ export default function HomeScreen() {
     transform: [{ translateY: headerY.value }],
   }));
 
-  // ── "En el local": ir directo al escáner QR ───────────────────────────────
   const handleTableMode = () => {
     setAppMode('SCANNER');
     setServiceType('TABLE');
     router.push('/(tabs)/scanner');
   };
 
-  // ── "Delivery": ir al mapa para que el usuario ubique el restaurante ───────
-  // ContextSwitcher detecta la ubicación, el usuario toca el pin del
-  // restaurante y automáticamente navega a delivery-catalog.
   const handleDeliveryMode = () => {
     setAppMode('CHECKING');
     setServiceType('DELIVERY');
@@ -57,12 +51,18 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
 
-      {/* Background decorative blobs */}
       <View style={styles.bgDot1} />
       <View style={styles.bgDot2} />
       <View style={styles.bgDot3} />
 
-      {/* Header */}
+      {/* History button — sin conectar al store aún */}
+      <TouchableOpacity
+        style={styles.historyBtn}
+        onPress={() => router.push('/(tabs)/history')}
+      >
+        <History size={20} color={Brand.textPrimary} strokeWidth={2} />
+      </TouchableOpacity>
+
       <Animated.View style={[styles.header, headerStyle]}>
         <Text style={styles.headline}>
           Bienvenido{'\n'}de nuevo!
@@ -72,7 +72,6 @@ export default function HomeScreen() {
         </Text>
       </Animated.View>
 
-      {/* Mode selection buttons */}
       <View style={styles.cardsRow}>
         <ModeCard
           icon={<QrCode size={36} color="#fff" strokeWidth={1.6} />}
@@ -92,7 +91,6 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Bottom hint */}
       <Animated.View style={[styles.bottomHint, { opacity: headerOpacity }]}>
         <View style={styles.hintDivider} />
         <Text style={styles.hintText}>Experiencia adaptada a tu ubicación</Text>
@@ -102,8 +100,6 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -138,6 +134,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(226, 88, 34, 0.08)',
     bottom: 180,
     right: 30,
+  },
+  historyBtn: {
+    position: 'absolute',
+    top: 0,
+    right: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: Brand.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Brand.border,
+    zIndex: 10,
   },
   header: {
     marginBottom: 36,
