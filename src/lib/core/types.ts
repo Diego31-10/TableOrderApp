@@ -56,3 +56,17 @@ export interface DeliveryInfo {
   /** Decoded array of coordinates ready for react-native-maps <Polyline /> */
   decodedRoute: Coordinates[];
 }
+
+// ─── Order History Domain ─────────────────────────────────────────────────────
+
+export interface OrderRecord {
+  id: string;
+  timestamp: string;
+  items: CartItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  shippingCost: number;
+  serviceType: 'TABLE' | 'DELIVERY';
+  tableName?: string;
+}
