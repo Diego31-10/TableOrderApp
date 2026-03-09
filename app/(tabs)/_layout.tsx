@@ -9,24 +9,21 @@ export default function TabLayout() {
         contentStyle: { backgroundColor: Brand.background },
       }}
     >
-      {/* Home — mode selection */}
       <Stack.Screen name="index" />
-
-      {/* QR scanner — "En el local" flow */}
       <Stack.Screen
         name="scanner"
         options={{ animation: 'slide_from_right' }}
       />
-
-      {/* Map + ContextSwitcher — "Delivery" flow */}
       <Stack.Screen
         name="map"
         options={{ animation: 'slide_from_right' }}
       />
-
-      {/* Menu — shown after a valid QR scan */}
       <Stack.Screen
         name="menu"
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="history"
         options={{ animation: 'slide_from_right' }}
       />
     </Stack>
