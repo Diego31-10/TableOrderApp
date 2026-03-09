@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { MapView, Camera, PointAnnotation, UserLocation } from '@rnmapbox/maps';
+import type { Feature, Geometry, GeoJsonProperties } from 'geojson';
 import * as Location from 'expo-location';
 import { MapPin, Navigation, MapPinned } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -13,7 +14,6 @@ import { useCartStore } from '@/src/stores/useCartStore';
 import ErrorState from '@/src/components/ui/ErrorState';
 
 // ─── Haversine Formula ────────────────────────────────────────────────────────
-// d = 2r·arcsin(√(sin²(Δφ/2) + cosφ₁·cosφ₂·sin²(Δλ/2)))
 
 function calculateDistance(c1: Coordinates, c2: Coordinates): number {
   const R = 6_371_000;
@@ -30,11 +30,6 @@ function calculateDistance(c1: Coordinates, c2: Coordinates): number {
 // ─── ContextSwitcher ──────────────────────────────────────────────────────────
 
 type PermissionStatus = 'loading' | 'granted' | 'denied';
-
-// GeoJSON feature shape returned by MapView.onPress
-type MapPressFeature = {
-  geometry: { type: string; coordinates: number[] };
-};
 
 export default function ContextSwitcher() {
   const [permStatus, setPermStatus] = useState<PermissionStatus>('loading');
@@ -68,12 +63,14 @@ export default function ContextSwitcher() {
   }, []);
 
   // ── 2. Map tap → set restaurant → Haversine → decide mode ──────────────────
-  // Note: Mapbox uses GeoJSON coordinate order [longitude, latitude]
+  // Usamos Feature<Geometry, GeoJsonProperties> — el tipo exacto que Mapbox espera
   const onMapPress = useCallback(
-    (feature: MapPressFeature) => {
+    (feature: Feature<Geometry, GeoJsonProperties>) => {
       if (!userLocation) return;
+      if (feature.geometry.type !== 'Point') return;
 
-      const [longitude, latitude] = feature.geometry.coordinates;
+      // GeoJSON Point: coordinates = [longitude, latitude]
+      const [longitude, latitude] = feature.geometry.coordinates as number[];
       const tapped: Coordinates = { latitude, longitude };
 
       setRestaurant(tapped);
@@ -133,7 +130,6 @@ export default function ContextSwitcher() {
         attributionEnabled={false}
         scaleBarEnabled={false}
       >
-        {/* Camera positioned on user's GPS location */}
         <Camera
           defaultSettings={{
             centerCoordinate: [userLocation.longitude, userLocation.latitude],
@@ -141,10 +137,8 @@ export default function ContextSwitcher() {
           }}
         />
 
-        {/* Built-in blue dot for current user position */}
         <UserLocation visible androidRenderMode="compass" />
 
-        {/* Restaurant pin — appears after user taps the map */}
         {restaurant && (
           <PointAnnotation
             id="restaurant-pin"
@@ -157,7 +151,6 @@ export default function ContextSwitcher() {
         )}
       </MapView>
 
-      {/* Instruction card */}
       <View style={styles.instructionCard}>
         <MapPinned size={20} color={Brand.primary} strokeWidth={1.8} />
         <View style={styles.instructionText}>
@@ -183,7 +176,6 @@ const styles = StyleSheet.create({
     backgroundColor: Brand.background,
   },
   loadingText: { fontSize: 14, color: Brand.textSecondary },
-  // Restaurant pin marker
   restaurantPin: {
     width: 30,
     height: 30,
@@ -205,7 +197,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#fff',
   },
-  // Instruction overlay card
   instructionCard: {
     position: 'absolute',
     bottom: 24,

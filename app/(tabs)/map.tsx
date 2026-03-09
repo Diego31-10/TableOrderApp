@@ -28,7 +28,6 @@ export default function MapScreen() {
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>Delivery</Text>
-          <Text style={styles.subtitle}>Toca el restaurante en el mapa</Text>
         </View>
       </View>
 
@@ -63,17 +62,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerText: {
-    gap: 2,
+    gap: 1,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: Brand.textPrimary,
     letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: Brand.textSecondary,
   },
   mapContainer: {
     flex: 1,
