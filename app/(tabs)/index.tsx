@@ -61,8 +61,9 @@ export default function HomeScreen() {
       <TouchableOpacity
         style={styles.historyBtn}
         onPress={() => router.push('/(tabs)/history')}
+        activeOpacity={0.7}
       >
-        <History size={20} color={Brand.textPrimary} strokeWidth={2} />
+        <History size={24} color={Brand.textPrimary} strokeWidth={2.2} />
         {orders.length > 0 && <View style={styles.historyDot} />}
       </TouchableOpacity>
 
@@ -140,26 +141,36 @@ const styles = StyleSheet.create({
   },
   historyBtn: {
     position: 'absolute',
-    top: 0,
+    top: 60,
     right: 24,
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     backgroundColor: Brand.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Brand.border,
     zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
   historyDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: Brand.primary,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: {
     marginBottom: 36,
