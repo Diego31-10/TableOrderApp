@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Bike, QrCode } from 'lucide-react-native';
+import { Bike, QrCode, History } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -14,16 +14,16 @@ import { Brand } from '@/constants/Colors';
 import ModeCard from '@/src/components/ui/ModeCard';
 import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = (width - 48 - 12) / 2;
-
-// ─── Home Screen ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const router = useRouter();
   const setAppMode = useLocationStore((s) => s.setAppMode);
   const setServiceType = useCartStore((s) => s.setServiceType);
+  const orders = useOrderHistoryStore((s) => s.orders);
 
   const headerOpacity = useSharedValue(0);
   const headerY = useSharedValue(-20);
@@ -38,16 +38,12 @@ export default function HomeScreen() {
     transform: [{ translateY: headerY.value }],
   }));
 
-  // ── "En el local": ir directo al escáner QR ───────────────────────────────
   const handleTableMode = () => {
     setAppMode('SCANNER');
     setServiceType('TABLE');
     router.push('/(tabs)/scanner');
   };
 
-  // ── "Delivery": ir al mapa para que el usuario ubique el restaurante ───────
-  // ContextSwitcher detecta la ubicación, el usuario toca el pin del
-  // restaurante y automáticamente navega a delivery-catalog.
   const handleDeliveryMode = () => {
     setAppMode('CHECKING');
     setServiceType('DELIVERY');
@@ -57,12 +53,20 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
 
-      {/* Background decorative blobs */}
       <View style={styles.bgDot1} />
       <View style={styles.bgDot2} />
       <View style={styles.bgDot3} />
 
-      {/* Header */}
+      {/* History button — dot visible cuando hay órdenes */}
+      <TouchableOpacity
+        style={styles.historyBtn}
+        onPress={() => router.push('/(tabs)/history')}
+        activeOpacity={0.7}
+      >
+        <History size={24} color={Brand.textPrimary} strokeWidth={2.2} />
+        {orders.length > 0 && <View style={styles.historyDot} />}
+      </TouchableOpacity>
+
       <Animated.View style={[styles.header, headerStyle]}>
         <Text style={styles.headline}>
           Bienvenido{'\n'}de nuevo!
@@ -72,7 +76,6 @@ export default function HomeScreen() {
         </Text>
       </Animated.View>
 
-      {/* Mode selection buttons */}
       <View style={styles.cardsRow}>
         <ModeCard
           icon={<QrCode size={36} color="#fff" strokeWidth={1.6} />}
@@ -92,7 +95,6 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Bottom hint */}
       <Animated.View style={[styles.bottomHint, { opacity: headerOpacity }]}>
         <View style={styles.hintDivider} />
         <Text style={styles.hintText}>Experiencia adaptada a tu ubicación</Text>
@@ -102,8 +104,6 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -138,6 +138,39 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(226, 88, 34, 0.08)',
     bottom: 180,
     right: 30,
+  },
+  historyBtn: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: Brand.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Brand.border,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  historyDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Brand.primary,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
   header: {
     marginBottom: 36,
