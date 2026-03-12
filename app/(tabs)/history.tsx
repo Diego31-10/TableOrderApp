@@ -75,7 +75,7 @@ import {
                 Descuento ({Math.round(order.discount * 100)}% OFF)
               </Text>
               <Text style={styles.discountValue}>
-                -${(order.subtotal - order.total + order.shippingCost).toFixed(2)}
+                -${(order.subtotal - order.total).toFixed(2)}
               </Text>
             </View>
           )}
