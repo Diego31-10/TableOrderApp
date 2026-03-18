@@ -271,7 +271,6 @@ export default function PaymentScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
@@ -295,7 +294,6 @@ export default function PaymentScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          // Hace scroll automático hasta el campo activo al abrirse el teclado
           keyboardDismissMode="interactive"
         >
           <OrderSummary />
@@ -389,7 +387,6 @@ export default function PaymentScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Success modal */}
       <Modal visible={paymentState === 'success'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -409,7 +406,6 @@ export default function PaymentScreen() {
         </View>
       </Modal>
 
-      {/* Error modal */}
       <Modal visible={paymentState === 'error'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, styles.modalCardError]}>
@@ -458,7 +454,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { paddingBottom: 16 },
   bottomPadding: { height: 24 },
-  // Summary
   summary: {
     marginHorizontal: 20,
     backgroundColor: Brand.surface,
@@ -490,7 +485,6 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Brand.border, marginVertical: 10 },
   totalLabel: { fontSize: 16, fontWeight: '700', color: Brand.textPrimary },
   totalValue: { fontSize: 18, fontWeight: '800', color: Brand.primary },
-  // Virtual card
   card: {
     marginHorizontal: 20,
     borderRadius: 20,
@@ -555,7 +549,6 @@ const styles = StyleSheet.create({
     left: -30,
     bottom: -40,
   },
-  // Form
   form: { marginHorizontal: 20, gap: 16 },
   inputGroup: { gap: 6 },
   inputLabel: { fontSize: 13, fontWeight: '600', color: Brand.textSecondary },
@@ -582,7 +575,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputHalfRow: { flexDirection: 'row', gap: 12 },
-  // Footer
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -610,7 +602,6 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   payBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-  // Modals
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',

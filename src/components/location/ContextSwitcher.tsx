@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Linking } from 'react-native';
-import { MapView, Camera, PointAnnotation, UserLocation } from '@rnmapbox/maps';
-import type { Feature, Geometry, GeoJsonProperties } from 'geojson';
+import { MapView, Camera, PointAnnotation } from '@rnmapbox/maps';
+import type { Camera as CameraType } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import { MapPin, Navigation, MapPinned } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import { useCartStore } from '@/src/stores/useCartStore';
 import ErrorState from '@/src/components/ui/ErrorState';
 
 // ─── Haversine Formula ────────────────────────────────────────────────────────
+// d = 2r·arcsin(√(sin²(Δφ/2) + cosφ₁·cosφ₂·sin²(Δλ/2)))
 
 function calculateDistance(c1: Coordinates, c2: Coordinates): number {
   const R = 6_371_000;
@@ -31,10 +32,19 @@ function calculateDistance(c1: Coordinates, c2: Coordinates): number {
 
 type PermissionStatus = 'loading' | 'granted' | 'denied';
 
+// GeoJSON feature shape returned by MapView.onPress
+type MapPressFeature = {
+  geometry: { type: string; coordinates: number[] };
+};
+
+const { defaultCenter } = Config.restaurant;
+
 export default function ContextSwitcher() {
   const [permStatus, setPermStatus] = useState<PermissionStatus>('loading');
   const [locating, setLocating] = useState(true);
   const [restaurant, setRestaurant] = useState<Coordinates | null>(null);
+
+  const cameraRef = useRef<CameraType>(null);
 
   const { userLocation, setLocations, setAppMode } = useLocationStore();
   const { setServiceType } = useCartStore();
@@ -62,15 +72,24 @@ export default function ContextSwitcher() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 2. Map tap → set restaurant → Haversine → decide mode ──────────────────
-  // Usamos Feature<Geometry, GeoJsonProperties> — el tipo exacto que Mapbox espera
-  const onMapPress = useCallback(
-    (feature: Feature<Geometry, GeoJsonProperties>) => {
-      if (!userLocation) return;
-      if (feature.geometry.type !== 'Point') return;
+  // ── 2. Fly to user location once GPS is ready ───────────────────────────────
+  useEffect(() => {
+    if (userLocation && cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: [userLocation.longitude, userLocation.latitude],
+        zoomLevel: 15,
+        animationDuration: 800,
+      });
+    }
+  }, [userLocation]);
 
-      // GeoJSON Point: coordinates = [longitude, latitude]
-      const [longitude, latitude] = feature.geometry.coordinates as number[];
+  // ── 3. Map tap → set restaurant → Haversine → decide mode ──────────────────
+  // Note: Mapbox uses GeoJSON coordinate order [longitude, latitude]
+  const onMapPress = useCallback(
+    (feature: MapPressFeature) => {
+      if (!userLocation) return;
+
+      const [longitude, latitude] = feature.geometry.coordinates;
       const tapped: Coordinates = { latitude, longitude };
 
       setRestaurant(tapped);
@@ -110,17 +129,7 @@ export default function ContextSwitcher() {
     );
   }
 
-  // ── Loading GPS ─────────────────────────────────────────────────────────────
-  if (permStatus === 'loading' || locating || !userLocation) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={Brand.primary} />
-        <Text style={styles.loadingText}>Obteniendo tu ubicación...</Text>
-      </View>
-    );
-  }
-
-  // ── Mapbox map active ───────────────────────────────────────────────────────
+  // ── Map (shown immediately centered on Cuenca; flies to GPS when ready) ─────
   return (
     <View style={styles.container}>
       <MapView
@@ -130,15 +139,28 @@ export default function ContextSwitcher() {
         attributionEnabled={false}
         scaleBarEnabled={false}
       >
+        {/* Start at Cuenca; useEffect flies to real GPS once available */}
         <Camera
+          ref={cameraRef}
           defaultSettings={{
-            centerCoordinate: [userLocation.longitude, userLocation.latitude],
-            zoomLevel: 15,
+            centerCoordinate: [defaultCenter.longitude, defaultCenter.latitude],
+            zoomLevel: 13,
           }}
         />
 
-        <UserLocation visible androidRenderMode="compass" />
+        {/* User pin — shown once GPS resolves */}
+        {userLocation && (
+          <PointAnnotation
+            id="user-pin"
+            coordinate={[userLocation.longitude, userLocation.latitude]}
+          >
+            <View style={styles.userPin}>
+              <Navigation size={12} color="#fff" strokeWidth={2.5} />
+            </View>
+          </PointAnnotation>
+        )}
 
+        {/* Restaurant pin — appears after user taps the map */}
         {restaurant && (
           <PointAnnotation
             id="restaurant-pin"
@@ -151,6 +173,15 @@ export default function ContextSwitcher() {
         )}
       </MapView>
 
+      {/* GPS acquiring overlay */}
+      {locating && (
+        <View style={styles.locatingBadge}>
+          <ActivityIndicator size="small" color={Brand.primary} />
+          <Text style={styles.locatingText}>Obteniendo ubicación...</Text>
+        </View>
+      )}
+
+      {/* Instruction card */}
       <View style={styles.instructionCard}>
         <MapPinned size={20} color={Brand.primary} strokeWidth={1.8} />
         <View style={styles.instructionText}>
@@ -168,14 +199,23 @@ export default function ContextSwitcher() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: {
-    flex: 1,
+  // User location pin (replaces <UserLocation> to avoid EventEmitter crash)
+  userPin: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#4A90E2',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
-    backgroundColor: Brand.background,
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  loadingText: { fontSize: 14, color: Brand.textSecondary },
+  // Restaurant pin marker
   restaurantPin: {
     width: 30,
     height: 30,
@@ -197,6 +237,28 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#fff',
   },
+  // GPS acquiring badge (overlay, doesn't block the map)
+  locatingBadge: {
+    position: 'absolute',
+    top: 16,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Brand.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Brand.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  locatingText: { fontSize: 13, color: Brand.textSecondary, fontWeight: '500' },
+  // Instruction overlay card
   instructionCard: {
     position: 'absolute',
     bottom: 24,
