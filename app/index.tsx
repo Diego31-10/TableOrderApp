@@ -1,7 +1,7 @@
 import { Redirect } from 'expo-router';
 
-// Redirige siempre a la pantalla de auth al abrir la app.
-// Expo Router usa este archivo como punto de entrada de la ruta "/".
+// Redirección inicial. El auth guard en _layout.tsx se encarga de
+// mandarlo a /(tabs) si ya hay sesión activa.
 export default function Index() {
   return <Redirect href="/auth" />;
 }
