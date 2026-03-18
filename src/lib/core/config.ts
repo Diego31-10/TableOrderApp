@@ -12,8 +12,6 @@ export const Config = {
     chatId: process.env.EXPO_PUBLIC_TELEGRAM_CHAT_ID ?? '',
   },
   restaurant: {
-    /** Display name shown in delivery receipts */
-    name: 'TableOrder Restaurant',
     /** Shipping cost multiplier: $1 USD per km */
     costPerKm: 1.0,
     /** Geofence radius in meters — inside = Modo Mesa, outside = Modo Delivery */

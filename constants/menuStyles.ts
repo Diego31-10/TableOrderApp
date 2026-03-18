@@ -1,0 +1,146 @@
+import { StyleSheet} from 'react-native';
+import { Brand } from '@/constants/Colors';
+
+export const stylesMenu = StyleSheet.create({
+    container: { flex: 1, backgroundColor: Brand.background },
+    listContent: { paddingBottom: 100 },
+  
+    // Header
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 16,
+      gap: 12,
+    },
+    backBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: Brand.surface,
+      borderWidth: 1,
+      borderColor: Brand.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerText: { flex: 1, gap: 1 },
+    tableLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: Brand.primary,
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
+    },
+    tableName: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: Brand.textPrimary,
+      letterSpacing: -0.5,
+    },
+    menuTypeBadge: {
+      backgroundColor: Brand.surfaceElevated,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 20,
+    },
+    menuTypeBadgeText: {
+      fontSize: 11,
+      color: Brand.textSecondary,
+      fontWeight: '600',
+    },
+  
+    // Section header
+    sectionHeader: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: Brand.textPrimary,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 12,
+    },
+  
+    // 2-column product grid
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      marginBottom: 12,
+      gap: 12,
+    },
+    card: {
+      flex: 1,
+      backgroundColor: Brand.surface,
+      borderRadius: 16,
+      overflow: 'hidden',
+    },
+    cardPlaceholder: { flex: 1 },
+    cardImage: { width: '100%', height: 130, backgroundColor: Brand.surfaceElevated },
+    cardBody: { padding: 12 },
+    cardName: { fontSize: 13, fontWeight: '700', color: Brand.textPrimary, lineHeight: 18 },
+    cardDesc: { fontSize: 11, color: Brand.textSecondary, marginTop: 3, lineHeight: 15 },
+    cardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    cardPrice: { fontSize: 15, fontWeight: '800', color: Brand.textPrimary },
+    addBtn: {
+      backgroundColor: Brand.primary,
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    qtyBtn: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: Brand.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qtyText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: Brand.textPrimary,
+      minWidth: 16,
+      textAlign: 'center',
+    },
+  
+    // Cart bar
+    cartBar: {
+      position: 'absolute',
+      bottom: 24,
+      left: 20,
+      right: 20,
+      backgroundColor: Brand.primary,
+      borderRadius: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      paddingVertical: 16,
+      shadowColor: Brand.primary,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.5,
+      shadowRadius: 16,
+      elevation: 10,
+    },
+    cartBadge: {
+      backgroundColor: 'rgba(0,0,0,0.25)',
+      borderRadius: 10,
+      minWidth: 26,
+      height: 26,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+      marginRight: 10,
+    },
+    cartBadgeText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+    cartBarText: { flex: 1, color: '#fff', fontSize: 16, fontWeight: '700' },
+    cartBarPrice: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  });

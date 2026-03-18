@@ -70,7 +70,6 @@ export default function TrackOrderScreen() {
         <PackageCheck size={24} color={Brand.success} strokeWidth={1.8} />
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Pedido en camino</Text>
-          <Text style={styles.headerSub}>{Config.restaurant.name}</Text>
         </View>
       </View>
 
@@ -188,7 +187,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Brand.border,
   },
-  headerText: { gap: 2 },
+  headerText: { gap: 1 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Brand.textPrimary },
   headerSub: { fontSize: 13, color: Brand.textSecondary },
   mapContainer: {

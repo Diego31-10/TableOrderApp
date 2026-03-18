@@ -8,8 +8,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, CreditCard, Lock, CheckCircle, XCircle, Cpu } from 'lucide-react-native';
@@ -162,8 +164,8 @@ export default function PaymentScreen() {
   const clearSession = useTableStore((s) => s.clearSession);
 
   const resetLocation = useLocationStore((s) => s.resetLocation);
-
   const addOrder = useOrderHistoryStore((s) => s.addOrder);
+  const insets = useSafeAreaInsets();
 
   const [cardNumber, setCardNumber] = useState('');
   const [holder, setHolder] = useState('');
@@ -268,7 +270,7 @@ export default function PaymentScreen() {
   }, [serviceType, resetCart, clearSession, resetLocation, router]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={22} color={Brand.textPrimary} strokeWidth={2} />
@@ -277,90 +279,113 @@ export default function PaymentScreen() {
         <Lock size={18} color={Brand.textSecondary} strokeWidth={1.8} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+      {/*
+        KeyboardAvoidingView con behavior="height" en Android.
+        Funciona como un acordeón: cuando el teclado sube, el contenedor
+        reduce su altura para que el ScrollView interno pueda hacer scroll
+        y dejar visible el campo activo.
+      */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
       >
-        <OrderSummary />
-        <CardPreview number={cardNumber} holder={holder} expiry={expiry} />
-        <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Datos de pago</Text>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Numero de tarjeta</Text>
-            <View style={styles.inputRow}>
-              <CreditCard size={18} color={Brand.textSecondary} strokeWidth={1.8} />
-              <TextInput
-                style={styles.input}
-                placeholder="1234 5678 9012 3456"
-                placeholderTextColor={Brand.textTertiary}
-                keyboardType="numeric"
-                value={cardNumber}
-                onChangeText={(t) => setCardNumber(formatCardNumber(t))}
-                maxLength={19}
-              />
-            </View>
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nombre del titular</Text>
-            <TextInput
-              style={[styles.input, styles.inputStandalone]}
-              placeholder="Como aparece en la tarjeta"
-              placeholderTextColor={Brand.textTertiary}
-              autoCapitalize="words"
-              value={holder}
-              onChangeText={setHolder}
-            />
-          </View>
-          <View style={styles.inputHalfRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>Vencimiento</Text>
-              <TextInput
-                style={[styles.input, styles.inputStandalone]}
-                placeholder="MM/AA"
-                placeholderTextColor={Brand.textTertiary}
-                keyboardType="numeric"
-                value={expiry}
-                onChangeText={(t) => setExpiry(formatExpiry(t))}
-                maxLength={5}
-              />
-            </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>CVV</Text>
-              <TextInput
-                style={[styles.input, styles.inputStandalone]}
-                placeholder="•••"
-                placeholderTextColor={Brand.textTertiary}
-                keyboardType="numeric"
-                secureTextEntry
-                value={cvv}
-                onChangeText={(t) => setCvv(t.replace(/\D/g, '').slice(0, 4))}
-                maxLength={4}
-              />
-            </View>
-          </View>
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
-          onPress={handlePay}
-          disabled={!isFormValid || paymentState === 'loading'}
-          activeOpacity={0.85}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="interactive"
         >
-          {paymentState === 'loading' ? (
-            <>
-              <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.payBtnText}>
-                {LOADING_LABELS[loadingStep] ?? 'Procesando...'}
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.payBtnText}>Pagar ${grandTotal.toFixed(2)}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          <OrderSummary />
+
+          <CardPreview number={cardNumber} holder={holder} expiry={expiry} />
+
+          <View style={styles.form}>
+            <Text style={styles.sectionTitle}>Datos de pago</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Numero de tarjeta</Text>
+              <View style={styles.inputRow}>
+                <CreditCard size={18} color={Brand.textSecondary} strokeWidth={1.8} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="1234 5678 9012 3456"
+                  placeholderTextColor={Brand.textTertiary}
+                  keyboardType="numeric"
+                  value={cardNumber}
+                  onChangeText={(t) => setCardNumber(formatCardNumber(t))}
+                  maxLength={19}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nombre del titular</Text>
+              <TextInput
+                style={[styles.input, styles.inputStandalone]}
+                placeholder="Como aparece en la tarjeta"
+                placeholderTextColor={Brand.textTertiary}
+                autoCapitalize="words"
+                value={holder}
+                onChangeText={setHolder}
+              />
+            </View>
+
+            <View style={styles.inputHalfRow}>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Vencimiento</Text>
+                <TextInput
+                  style={[styles.input, styles.inputStandalone]}
+                  placeholder="MM/AA"
+                  placeholderTextColor={Brand.textTertiary}
+                  keyboardType="numeric"
+                  value={expiry}
+                  onChangeText={(t) => setExpiry(formatExpiry(t))}
+                  maxLength={5}
+                />
+              </View>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>CVV</Text>
+                <TextInput
+                  style={[styles.input, styles.inputStandalone]}
+                  placeholder="•••"
+                  placeholderTextColor={Brand.textTertiary}
+                  keyboardType="numeric"
+                  secureTextEntry
+                  value={cvv}
+                  onChangeText={(t) => setCvv(t.replace(/\D/g, '').slice(0, 4))}
+                  maxLength={4}
+                />
+              </View>
+            </View>
+
+            {/* Padding extra al final para que el último campo no quede
+                pegado al borde inferior cuando el teclado está abierto */}
+            <View style={styles.bottomPadding} />
+          </View>
+        </ScrollView>
+
+        {/* Botón de pago fuera del ScrollView para que siempre sea visible */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.payBtn, !isFormValid && styles.payBtnDisabled]}
+            onPress={handlePay}
+            disabled={!isFormValid || paymentState === 'loading'}
+            activeOpacity={0.85}
+          >
+            {paymentState === 'loading' ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.payBtnText}>
+                  {LOADING_LABELS[loadingStep] ?? 'Procesando...'}
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.payBtnText}>Pagar ${grandTotal.toFixed(2)}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
 
       <Modal visible={paymentState === 'success'} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -396,7 +421,7 @@ export default function PaymentScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -404,6 +429,7 @@ export default function PaymentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Brand.background },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -426,7 +452,8 @@ const styles = StyleSheet.create({
     color: Brand.textPrimary,
     letterSpacing: -0.3,
   },
-  scrollContent: { paddingBottom: 24 },
+  scrollContent: { paddingBottom: 16 },
+  bottomPadding: { height: 24 },
   summary: {
     marginHorizontal: 20,
     backgroundColor: Brand.surface,
@@ -544,6 +571,8 @@ const styles = StyleSheet.create({
     borderColor: Brand.border,
     paddingHorizontal: 14,
     height: 52,
+    color: Brand.textPrimary,
+    fontSize: 15,
   },
   inputHalfRow: { flexDirection: 'row', gap: 12 },
   footer: {
@@ -551,6 +580,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: Brand.border,
+    backgroundColor: Brand.background,
   },
   payBtn: {
     backgroundColor: Brand.primary,
