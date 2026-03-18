@@ -29,6 +29,12 @@ export default function TabLayout() {
         name="menu"
         options={{ animation: 'slide_from_right' }}
       />
+
+      {/* Order history */}
+      <Stack.Screen
+        name="history"
+        options={{ animation: 'slide_from_right' }}
+      />
     </Stack>
   );
 }
