@@ -16,6 +16,7 @@ import ModeCard from '@/src/components/ui/ModeCard';
 import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = (width - 48 - 12) / 2;
@@ -23,12 +24,14 @@ const CARD_SIZE = (width - 48 - 12) / 2;
 // ─── Profile Menu ─────────────────────────────────────────────────────────────
 
 function ProfileMenu({
-  visible, onClose, onLogout, anchorTop,
+  visible, onClose, onLogout, anchorTop, userName, userEmail,
 }: {
   visible: boolean;
   onClose: () => void;
   onLogout: () => void;
   anchorTop: number;
+  userName: string;
+  userEmail: string;
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -43,8 +46,8 @@ function ProfileMenu({
               <UserCircle2 size={22} color="#fff" strokeWidth={1.6} />
             </View>
             <View style={styles.menuUserInfo}>
-              <Text style={styles.menuUserName}>Mi cuenta</Text>
-              <Text style={styles.menuUserRole}>Cliente</Text>
+              <Text style={styles.menuUserName} numberOfLines={1}>{userName}</Text>
+              <Text style={styles.menuUserRole} numberOfLines={1}>{userEmail}</Text>
             </View>
           </View>
 
@@ -68,7 +71,12 @@ export default function HomeScreen() {
   const setAppMode = useLocationStore((s) => s.setAppMode);
   const setServiceType = useCartStore((s) => s.setServiceType);
   const orders = useOrderHistoryStore((s) => s.orders);
+  const signOut = useAuthStore((s) => s.signOut);
+  const user = useAuthStore((s) => s.user);
   const [menuVisible, setMenuVisible] = useState(false);
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Mi cuenta';
+  const userEmail = user?.email ?? '';
 
   const headerOpacity = useSharedValue(0);
   const headerY = useSharedValue(-20);
@@ -95,10 +103,11 @@ export default function HomeScreen() {
     router.push('/(tabs)/map');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setMenuVisible(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace('/auth');
+    await signOut();
+    // La navegación la maneja el auth guard en _layout.tsx
   };
 
   // El botón tiene 52px de alto + insets.top de margen desde arriba
@@ -181,6 +190,8 @@ export default function HomeScreen() {
         onClose={() => setMenuVisible(false)}
         onLogout={handleLogout}
         anchorTop={menuAnchorTop}
+        userName={userName}
+        userEmail={userEmail}
       />
     </SafeAreaView>
   );
