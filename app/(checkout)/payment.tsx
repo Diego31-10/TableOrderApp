@@ -21,6 +21,7 @@ import { Brand } from '@/constants/Colors';
 import { useCartStore } from '@/src/stores/useCartStore';
 import { useTableStore } from '@/src/stores/useTableStore';
 import { useLocationStore } from '@/src/stores/useLocationStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 import { processMockPayment } from '@/src/lib/core/payments/paymentService';
 import { sendPaymentNotification } from '@/src/lib/core/notifications/NotificationService';
 import { generateTicketPDF } from '@/src/lib/services/pdfService';
@@ -163,6 +164,7 @@ export default function PaymentScreen() {
   const clearSession = useTableStore((s) => s.clearSession);
 
   const resetLocation = useLocationStore((s) => s.resetLocation);
+  const addOrder = useOrderHistoryStore((s) => s.addOrder);
   const insets = useSafeAreaInsets();
 
   const [cardNumber, setCardNumber] = useState('');
@@ -228,6 +230,19 @@ export default function PaymentScreen() {
         : 'delivery';
     await sendPaymentNotification(grandTotal, serviceName);
 
+    // Guardar en historial
+    addOrder({
+      id: `order-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      items,
+      subtotal,
+      discount,
+      total,
+      shippingCost,
+      serviceType,
+      tableName: currentTable?.displayName,
+    });
+
     setPaymentState('success');
   }, [
     isFormValid,
@@ -240,6 +255,7 @@ export default function PaymentScreen() {
     shippingCost,
     serviceType,
     currentTable,
+    addOrder,
   ]);
 
   const handleSuccessDismiss = useCallback(() => {

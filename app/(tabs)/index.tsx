@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, Text, View, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Bike, QrCode, UserCircle2, LogOut } from 'lucide-react-native';
+import { Bike, QrCode, UserCircle2, LogOut, History } from 'lucide-react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,6 +15,7 @@ import { Brand } from '@/constants/Colors';
 import ModeCard from '@/src/components/ui/ModeCard';
 import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 
 const { width } = Dimensions.get('window');
 const CARD_SIZE = (width - 48 - 12) / 2;
@@ -66,6 +67,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const setAppMode = useLocationStore((s) => s.setAppMode);
   const setServiceType = useCartStore((s) => s.setServiceType);
+  const orders = useOrderHistoryStore((s) => s.orders);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const headerOpacity = useSharedValue(0);
@@ -129,6 +131,16 @@ export default function HomeScreen() {
         activeOpacity={0.8}
       >
         <UserCircle2 size={30} color={Brand.textPrimary} strokeWidth={1.5} />
+      </TouchableOpacity>
+
+      {/* ── Botón de historial — arriba a la derecha ── */}
+      <TouchableOpacity
+        style={[styles.historyBtn, { top: insets.top + 10 }]}
+        onPress={() => router.push('/(tabs)/history')}
+        activeOpacity={0.7}
+      >
+        <History size={24} color={Brand.textPrimary} strokeWidth={2.2} />
+        {orders.length > 0 && <View style={styles.historyDot} />}
       </TouchableOpacity>
 
       {/* Contenido centrado verticalmente */}
@@ -205,6 +217,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 5,
+  },
+
+  // Botón de historial — posición absoluta, derecha
+  historyBtn: {
+    position: 'absolute',
+    right: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: Brand.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Brand.border,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  historyDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Brand.primary,
+    shadowColor: Brand.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   // Área de contenido principal
