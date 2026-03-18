@@ -17,6 +17,8 @@ import { useRouter } from 'expo-router';
 import { User, Lock, Mail, Eye, EyeOff, ChefHat, ArrowRight, ArrowLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
+import { useAuthStore } from '@/src/stores/useAuthStore';
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.32;
 
@@ -89,8 +91,10 @@ function InputField({
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const signUp = useAuthStore((s) => s.signUp);
+  const loading = useAuthStore((s) => s.loading);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -109,7 +113,7 @@ export default function RegisterScreen() {
     ]).start();
   }, [shakeAnim]);
 
-  const handleRegister = () => {
+  const handleRegister = useCallback(async () => {
     setError('');
     if (!name.trim() || !email.trim() || !password.trim() || !confirm.trim()) {
       setError('Por favor completa todos los campos.');
@@ -133,13 +137,23 @@ export default function RegisterScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const result = await signUp(email.trim(), password, name.trim());
+    if (result === 'CONFIRM_EMAIL') {
+      // Cuenta creada pero Supabase requiere confirmar email.
+      // Ve al dashboard y desactiva "Confirm email" en Auth → Providers → Email.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
-    }, 800);
-  };
+      setSuccess(true);
+      return;
+    }
+    if (result) {
+      setError(result);
+      shake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // La navegación la maneja el auth guard en _layout.tsx
+  }, [name, email, password, confirm, signUp, shake]);
 
   return (
     <View style={styles.screenContainer}>
@@ -213,6 +227,17 @@ export default function RegisterScreen() {
             />
           </Animated.View>
 
+          {success ? (
+            <View style={styles.successBox}>
+              <Text style={styles.successText}>
+                ✓ Cuenta creada. Revisa tu correo para confirmar y luego inicia sesión.
+              </Text>
+              <TouchableOpacity onPress={() => router.replace('/auth')} style={styles.successBtn}>
+                <Text style={styles.successBtnText}>Ir a iniciar sesión</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {error ? (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
@@ -280,6 +305,11 @@ const styles = StyleSheet.create({
   inputIcon: { width: 22, alignItems: 'center' },
   textInput: { flex: 1, fontSize: 15, color: '#1A1A1A', height: '100%' },
   eyeBtn: { padding: 4 },
+
+  successBox: { marginTop: 16, backgroundColor: '#F0FFF4', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1, borderColor: '#86EFAC', gap: 12 },
+  successText: { fontSize: 13, color: '#166534', fontWeight: '500', textAlign: 'center', lineHeight: 20 },
+  successBtn: { backgroundColor: '#16A34A', borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  successBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   errorBox: { marginTop: 16, backgroundColor: '#FFF0EE', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: '#FFCFC8' },
   errorText: { fontSize: 13, color: '#C04015', fontWeight: '500', textAlign: 'center' },

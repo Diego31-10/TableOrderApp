@@ -18,6 +18,7 @@ import { Lock, Mail, Eye, EyeOff, ChefHat, ArrowRight } from 'lucide-react-nativ
 import * as Haptics from 'expo-haptics';
 
 import { stylesAuth } from '@/constants/authStyles';
+import { useAuthStore } from '@/src/stores/useAuthStore';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.32;
@@ -90,7 +91,8 @@ function InputField({
 
 export default function AuthScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const signIn = useAuthStore((s) => s.signIn);
+  const loading = useAuthStore((s) => s.loading);
   const [error, setError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -107,7 +109,7 @@ export default function AuthScreen() {
     ]).start();
   }, [shakeAnim]);
 
-  const handleLogin = () => {
+  const handleLogin = useCallback(async () => {
     setError('');
     if (!email.trim() || !password.trim()) {
       setError('Por favor completa todos los campos.');
@@ -115,13 +117,16 @@ export default function AuthScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)');
-    }, 800);
-  };
+    const errorMsg = await signIn(email.trim(), password);
+    if (errorMsg) {
+      setError(errorMsg);
+      shake();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // La navegación la maneja el auth guard en _layout.tsx
+  }, [email, password, signIn, shake]);
 
   return (
     <View style={stylesAuth.screenContainer}>
