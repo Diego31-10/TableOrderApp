@@ -230,9 +230,8 @@ export default function PaymentScreen() {
         : 'delivery';
     await sendPaymentNotification(grandTotal, serviceName);
 
-    // Guardar en historial
-    addOrder({
-      id: `order-${Date.now()}`,
+    // Guardar en historial (local optimista + persist en Supabase)
+    await addOrder({
       timestamp: new Date().toISOString(),
       items,
       subtotal,

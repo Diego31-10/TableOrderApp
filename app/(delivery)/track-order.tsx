@@ -7,6 +7,7 @@ import { Clock, MapPin, Navigation, PackageCheck } from 'lucide-react-native';
 import { Brand } from '@/constants/Colors';
 import { useLocationStore } from '@/src/stores/useLocationStore';
 import { useCartStore } from '@/src/stores/useCartStore';
+import { useOrderHistoryStore } from '@/src/stores/useOrderHistoryStore';
 import { Config } from '@/src/lib/core/config';
 
 // GeoJSON LineString shape built from the decoded Mapbox polyline
@@ -27,7 +28,9 @@ function buildRouteShape(
 export default function TrackOrderScreen() {
   const router = useRouter();
   const { userLocation, restaurantLocation, deliveryInfo, resetLocation } = useLocationStore();
-  const { shippingCost, resetCart } = useCartStore();
+  const resetCart = useCartStore((s) => s.resetCart);
+  const lastOrder = useOrderHistoryStore((s) => s.orders[0]);
+  const grandTotal = lastOrder ? lastOrder.total + lastOrder.shippingCost : 0;
 
   const handleDone = () => {
     resetCart();
@@ -149,8 +152,8 @@ export default function TrackOrderScreen() {
             <View style={styles.panelItem}>
               <MapPin size={20} color={Brand.primary} strokeWidth={1.8} />
               <View>
-                <Text style={styles.panelLabel}>Costo envío</Text>
-                <Text style={styles.panelValue}>${shippingCost.toFixed(2)}</Text>
+                <Text style={styles.panelLabel}>Total pagado</Text>
+                <Text style={styles.panelValue}>${grandTotal.toFixed(2)}</Text>
               </View>
             </View>
           </View>
