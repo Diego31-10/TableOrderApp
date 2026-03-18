@@ -16,5 +16,7 @@ export const Config = {
     costPerKm: 1.0,
     /** Geofence radius in meters — inside = Modo Mesa, outside = Modo Delivery */
     geofenceRadiusMeters: 50,
+    /** Default map center — Cuenca, Ecuador */
+    defaultCenter: { latitude: -2.9001, longitude: -79.0059 },
   },
 } as const;
